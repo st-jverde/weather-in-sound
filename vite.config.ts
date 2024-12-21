@@ -9,14 +9,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    rollupOptions: {
-      external: ['dotenv', 'path', 'os', 'crypto', './api/*'], // Mark Node.js modules and `api` folder as external
-    },
-  },
-  server: {
-    proxy: {
-      '/api': 'http://localhost:3000', // Proxy API requests to your backend
-    },
-  },
 });
+
+// build: {
+//   rollupOptions: {
+//     external: ['dotenv', 'path', 'os', 'crypto', './api/*'], // Mark Node.js modules and `api` folder as external
+//   },
+// },
+// server: {
+//   proxy: {
+//     '/api': 'http://localhost:3000', // Proxy API requests to your backend
+//   },
+// },

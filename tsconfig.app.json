@@ -31,5 +31,5 @@
       ]
     }
   },
-  "include": ["src", "api", "vite-env.d.ts"]
+  "include": ["src", "api", "src/vite-env.d.ts"]
 }
