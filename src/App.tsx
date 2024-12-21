@@ -1,11 +1,11 @@
 import './App.css'
-import WeatherAppComponent from '@/components/weather-app'
+import WeatherInSound from '@/components/weather-in-sound'
 
 function App() {
 
   return (
     <div>
-      <WeatherAppComponent />
+      <WeatherInSound />
     </div>
   )
 }
