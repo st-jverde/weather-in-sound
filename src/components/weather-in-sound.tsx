@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { getWeather } from '../../api/weather'; // Adjust the path as needed
+import { getWeather } from '../../server/weather'; // Adjust the path as needed
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { startAudioEngine, playWeatherMelody } from '../../server/audioEngine/audio'; // Import the Tone.js initialization function
 
 interface Weather {
   temperature: number;
@@ -14,16 +15,21 @@ interface Weather {
 export default function WeatherInSound() {
   const [location, setLocation] = useState('Amsterdam');
   const [weather, setWeather] = useState<Weather | null>(null);
-  const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/ambient-weather.mp3') : null);
+  const [audioInitialized, setAudioInitialized] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      // Replace this with real latitude and longitude retrieval logic
-      // const { latitude, longitude } = await getCoordinates(location);
-      const latitude = 52.38; // Temporary Amsterdam latitude
-      const longitude = 4.9; // Temporary Amsterdam longitude
+      // Initialize the audio engine on first use
+      if (!audioInitialized) {
+        await startAudioEngine();
+        setAudioInitialized(true);
+      }
+
+      // Fetch weather data (using static Amsterdam coordinates for now)
+      const latitude = 52.38;
+      const longitude = 4.9;
       const weatherData = await getWeather(latitude, longitude);
 
       setWeather({
@@ -33,23 +39,23 @@ export default function WeatherInSound() {
         windSpeed: weatherData.windSpeed,
       });
 
-      if (audio) {
-        audio.loop = true;
-        audio.play();
+      if (weatherData) {
+        playWeatherMelody({
+          temperature: weatherData.temperature,
+          humidity: weatherData.humidity,
+          windSpeed: weatherData.windSpeed,
+        });
       }
+
     } catch (error) {
-      console.error("Error fetching weather data:", error);
-      alert("Failed to fetch weather data. Please try again.");
+      console.error("Error fetching weather or initializing audio:", error);
+      alert("Failed to fetch weather data or initialize audio. Please try again.");
     }
   };
 
   const resetLocation = () => {
     setWeather(null);
     setLocation('');
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
   };
 
   const getWeatherIcon = (condition: string) => {
@@ -83,6 +89,7 @@ export default function WeatherInSound() {
               />
               <Button
                 type="submit"
+                id="get-weather"
                 className="w-full h-12 text-lg bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#1a2e44] rounded-none border border-[#1a2e44]"
               >
                 GET WEATHER
