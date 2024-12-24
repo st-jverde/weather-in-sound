@@ -3,7 +3,7 @@ import { getWeather } from '../../server/weather'; // Adjust the path as needed
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { startAudioEngine, playWeatherMelody } from '../../server/audioEngine/audio'; // Import the Tone.js initialization function
+import { startAudioEngine, playWeatherMelody, stopCurrentMelody } from '../../server/audioEngine/audio'; // Import the Tone.js initialization function
 
 interface Weather {
   temperature: number;
@@ -38,10 +38,16 @@ export default function WeatherInSound() {
         humidity: weatherData.humidity,
         windSpeed: weatherData.windSpeed,
       });
+      console.log("weather: ", weather);
+      console.log("temperature: ", weather?.temperature);
+      console.log("condition: ", weather?.condition);
+      console.log("humidity: ", weather?.humidity);
+      console.log("windSpeed: ", weather?.windSpeed);
 
       if (weatherData) {
         playWeatherMelody({
           temperature: weatherData.temperature,
+          condition: weatherData.condition,
           humidity: weatherData.humidity,
           windSpeed: weatherData.windSpeed,
         });
@@ -56,6 +62,7 @@ export default function WeatherInSound() {
   const resetLocation = () => {
     setWeather(null);
     setLocation('');
+    stopCurrentMelody();
   };
 
   const getWeatherIcon = (condition: string) => {
