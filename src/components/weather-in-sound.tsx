@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { getWeather } from '../../server/weather'; // Adjust the path as needed
+import { useState, useEffect } from 'react';
+// import { getWeather } from '../../server/weather'; // Adjust the path as needed
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,13 @@ export default function WeatherInSound() {
   const [location, setLocation] = useState('Amsterdam');
   const [weather, setWeather] = useState<Weather | null>(null);
   const [audioInitialized, setAudioInitialized] = useState(false);
+  const [loading, setLoading] = useState(false); // Add loading state
+  const [error, setError] = useState<string | null>(null); // Add error state
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null); // Reset error
+    setLoading(true); // Start loading
 
     try {
       // Initialize the audio engine on first use
@@ -28,36 +32,50 @@ export default function WeatherInSound() {
       }
 
       // Fetch weather data (using static Amsterdam coordinates for now)
-      const latitude = 52.38;
-      const longitude = 4.9;
-      const weatherData = await getWeather(latitude, longitude);
+      // const latitude = 52.38;
+      // const longitude = 4.9;
+      // const weatherData = await getWeather(latitude, longitude);
 
+      // console.log("weatherData: ", weatherData);
+      // console.log("weatherData temperature: ", weatherData.temperature);
+      // console.log("weatherData condition: ", weatherData.condition);
+      // console.log("weatherData humidity: ", weatherData.humidity);
+      // console.log("weatherData windSpeed: ", weatherData.windSpeed);
+
+      // setWeather({
+      //   temperature: weatherData.temperature,
+      //   condition: weatherData.condition,
+      //   humidity: weatherData.humidity,
+      //   windSpeed: weatherData.windSpeed,
+      // });
+
+      // Test weather data
       setWeather({
-        temperature: weatherData.temperature,
-        condition: weatherData.condition,
-        humidity: weatherData.humidity,
-        windSpeed: weatherData.windSpeed,
-      });
-      console.log("weather: ", weather);
-      console.log("temperature: ", weather?.temperature);
-      console.log("condition: ", weather?.condition);
-      console.log("humidity: ", weather?.humidity);
-      console.log("windSpeed: ", weather?.windSpeed);
-
-      if (weatherData) {
-        playWeatherMelody({
-          temperature: weatherData.temperature,
-          condition: weatherData.condition,
-          humidity: weatherData.humidity,
-          windSpeed: weatherData.windSpeed,
+          temperature: 2,
+          condition: "windy",
+          humidity: 50,
+          windSpeed: 100,
         });
-      }
 
-    } catch (error) {
-      console.error("Error fetching weather or initializing audio:", error);
+    } catch (err) {
+      console.error("Error fetching weather or initializing audio:", err);
       alert("Failed to fetch weather data or initialize audio. Please try again.");
+    } finally {
+      setLoading(false); // End loading
     }
   };
+
+  useEffect(() => {
+    if (weather) {
+      console.log("Updated weather state:", weather);
+      playWeatherMelody({
+        temperature: weather.temperature,
+        condition: weather.condition,
+        humidity: weather.humidity,
+        windSpeed: weather.windSpeed,
+      });
+    }
+  }, [weather]);
 
   const resetLocation = () => {
     setWeather(null);
@@ -96,12 +114,15 @@ export default function WeatherInSound() {
               />
               <Button
                 type="submit"
+                // onClick={() => startAudioEngine()}
                 id="get-weather"
                 className="w-full h-12 text-lg bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#1a2e44] rounded-none border border-[#1a2e44]"
+                disabled={loading} // Disable button while loading
               >
-                GET WEATHER
+                {loading ? "Fetching..." : "GET WEATHER"}
               </Button>
             </div>
+            {error && <p className="text-red-500 text-center mt-4">{error}</p>}
           </form>
         ) : (
           <div className="text-center">
