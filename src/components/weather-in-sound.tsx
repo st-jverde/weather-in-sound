@@ -3,7 +3,13 @@ import { useState, useEffect } from 'react';
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { startAudioEngine, playWeatherMelody, stopCurrentMelody } from '../../server/audioEngine/audio'; // Import the Tone.js initialization function
+// import { startAudioEngine, playWeatherMelody, stopCurrentMelody } from '../../server/audio/audio'; // Import the Tone.js initialization function
+import {
+  initializeAudioEngine,
+  playWeatherSound,
+  stopWeatherSound,
+  cleanupAudioEngine
+} from '../../server/audio/weather-audio-bridges';
 
 interface Weather {
   temperature: number;
@@ -18,69 +24,80 @@ export default function WeatherInSound() {
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [loading, setLoading] = useState(false); // Add loading state
   const [error, setError] = useState<string | null>(null); // Add error state
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // Reset error
-    setLoading(true); // Start loading
+    setError(null);
+    setAudioError(null);
+    setLoading(true);
 
     try {
-      // Initialize the audio engine on first use
+      // Initialize audio on button click (user gesture)
       if (!audioInitialized) {
-        await startAudioEngine();
-        setAudioInitialized(true);
+        try {
+          await initializeAudioEngine();
+          setAudioInitialized(true);
+        } catch (err) {
+          setAudioError('Failed to initialize audio. Please try again.');
+          console.log(audioError);
+          throw err;
+        }
       }
 
       // Fetch weather data (using static Amsterdam coordinates for now)
       // const latitude = 52.38;
       // const longitude = 4.9;
       // const weatherData = await getWeather(latitude, longitude);
-
-      // console.log("weatherData: ", weatherData);
-      // console.log("weatherData temperature: ", weatherData.temperature);
-      // console.log("weatherData condition: ", weatherData.condition);
-      // console.log("weatherData humidity: ", weatherData.humidity);
-      // console.log("weatherData windSpeed: ", weatherData.windSpeed);
-
-      // setWeather({
-      //   temperature: weatherData.temperature,
-      //   condition: weatherData.condition,
-      //   humidity: weatherData.humidity,
-      //   windSpeed: weatherData.windSpeed,
-      // });
+      //   setWeather({
+      //     temperature: weatherData.temperature,
+      //     condition: weatherData.condition,
+      //     humidity: weatherData.humidity,
+      //     windSpeed: weatherData.windSpeed,
+      //   });
 
       // Test weather data
       setWeather({
-          temperature: 2,
-          condition: "windy",
-          humidity: 50,
-          windSpeed: 100,
+          temperature: -5,
+          condition: "snowy",
+          humidity: 15,
+          windSpeed: 10,
         });
 
     } catch (err) {
-      console.error("Error fetching weather or initializing audio:", err);
-      alert("Failed to fetch weather data or initialize audio. Please try again.");
+      console.error("Error:", err);
+      setError("Failed to fetch weather data. Please try again.");
     } finally {
-      setLoading(false); // End loading
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (weather) {
+    if (weather && audioInitialized) {
       console.log("Updated weather state:", weather);
-      playWeatherMelody({
+      playWeatherSound({
         temperature: weather.temperature,
         condition: weather.condition,
         humidity: weather.humidity,
         windSpeed: weather.windSpeed,
+      }).catch(err => {
+        console.error("Error playing weather sound:", err);
+        setAudioError("Error playing sound. Please refresh the page.");
       });
     }
-  }, [weather]);
+  }, [weather, audioInitialized]);
+
+  useEffect(() => {
+    return () => {
+      stopWeatherSound();
+      cleanupAudioEngine();
+    };
+  }, []);
 
   const resetLocation = () => {
     setWeather(null);
     setLocation('');
-    stopCurrentMelody();
+    stopWeatherSound();
   };
 
   const getWeatherIcon = (condition: string) => {
