@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getWeather } from '../../server/weather'; // Adjust the path as needed
+import { getWeather } from '../../server/weather';
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-// import { startAudioEngine, playWeatherMelody, stopCurrentMelody } from '../../server/audio/audio'; // Import the Tone.js initialization function
 import {
   initializeAudioEngine,
   playWeatherSound,
@@ -18,39 +16,41 @@ interface Weather {
   windSpeed: number;
 }
 
-// interface Locations {
-//   city: string;
-//   long: number;
-//   lat: number;
-// }
+interface Locations {
+  city: string;
+  long: number;
+  lat: number;
+}
 
-// const locations: Locations[] = [
-//   { city: "Amsterdam", lat: 52.3676, long: 4.9041 },
-//   { city: "London", lat: 51.5074, long: -0.1278 },
-//   { city: "Montreal", lat: 45.5017, long: -73.5673 },
-//   { city: "Tokyo", lat: 35.6762, long: 139.6503 },
-//   { city: "Krakow", lat: 50.0647, long: 19.9450 },
-//   { city: "Berlin", lat: 52.5200, long: 13.4050 },
-//   { city: "Tirana", lat: 41.3275, long: 19.8187 }
-// ];
+const locations: Locations[] = [
+  { city: "Amsterdam", lat: 52.3676, long: 4.9041 },
+  { city: "London", lat: 51.5074, long: -0.1278 },
+  { city: "Montreal", lat: 45.5017, long: -73.5673 },
+  { city: "Tokyo", lat: 35.6762, long: 139.6503 },
+  { city: "Quito", lat: -0.180653, long: -78.467834 },
+  { city: "Berlin", lat: 52.5200, long: 13.4050 },
+  { city: "Yerevan", lat: 40.179188, long: 44.499104 },
+  { city: "Nairobi", lat: -1.2864, long: 36.8172 },
+  { city: "Bangkok", lat: 13.756331, long: 100.501762 },
+];
 
 export default function WeatherInSound() {
-  // const [selectedLocation, setSelectedLocation] = useState<Locations | null>(null);
-  const [location, setLocation] = useState('Amsterdam');
+  const [selectedLocation, setSelectedLocation] = useState<Locations | null>(null);
+  const [location, setLocation] = useState('');
   const [weather, setWeather] = useState<Weather | null>(null);
   const [audioInitialized, setAudioInitialized] = useState(false);
-  const [loading, setLoading] = useState(false); // Add loading state
-  const [error, setError] = useState<string | null>(null); // Add error state
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLocationSelect = async (selectedLoc: Locations) => {
+    setSelectedLocation(selectedLoc);
+    setLocation(selectedLoc.city);
     setError(null);
     setAudioError(null);
     setLoading(true);
 
     try {
-      // Initialize audio on button click (user gesture)
       if (!audioInitialized) {
         try {
           await initializeAudioEngine();
@@ -62,24 +62,13 @@ export default function WeatherInSound() {
         }
       }
 
-      // Fetch weather data (using static Amsterdam coordinates for now)
-      const latitude = 52.38;
-      const longitude = 4.9;
-      const weatherData = await getWeather(latitude, longitude);
-        setWeather({
-          temperature: weatherData.temperature,
-          condition: weatherData.condition,
-          humidity: weatherData.humidity,
-          windSpeed: weatherData.windSpeed,
-        });
-
-      // Test weather data
-      // setWeather({
-      //     temperature: -5,
-      //     condition: "snowy",
-      //     humidity: 15,
-      //     windSpeed: 10,
-      //   });
+      const weatherData = await getWeather(selectedLoc.lat, selectedLoc.long);
+      setWeather({
+        temperature: weatherData.temperature,
+        condition: weatherData.condition,
+        humidity: weatherData.humidity,
+        windSpeed: weatherData.windSpeed,
+      });
 
     } catch (err) {
       console.error("Error:", err);
@@ -114,6 +103,7 @@ export default function WeatherInSound() {
   const resetLocation = () => {
     setWeather(null);
     setLocation('');
+    setSelectedLocation(null);
     stopWeatherSound();
     cleanupAudioEngine();
   };
@@ -137,28 +127,23 @@ export default function WeatherInSound() {
     <div className="flex items-center justify-center min-h-screen bg-white">
       <div className="w-full max-w-md p-8">
         {!weather ? (
-          <form onSubmit={handleSubmit} className="space-y-12">
+          <div className="space-y-12">
             <h1 className="text-6xl text-center text-[#1a2e44] mb-16">WEATHER IN SOUND</h1>
-            <div className="space-y-4">
-              <Input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Enter city name"
-                className="w-full h-12 px-4 text-lg border border-[#1a2e44] rounded-none bg-white text-[#1a2e44] placeholder:text-[#1a2e44]/50"
-              />
-              <Button
-                type="submit"
-                // onClick={() => startAudioEngine()}
-                id="get-weather"
-                className="w-full h-12 text-lg bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#1a2e44] rounded-none border border-[#1a2e44]"
-                disabled={loading} // Disable button while loading
-              >
-                {loading ? "Fetching..." : "GET WEATHER"}
-              </Button>
+            <div className="grid grid-cols-3 gap-2">
+              {locations.map((loc) => (
+                <Button
+                  key={loc.city}
+                  onClick={() => handleLocationSelect(loc)}
+                  disabled={loading}
+                  variant={selectedLocation?.city === loc.city ? "default" : "outline"}
+                  className="w-full h-12 text-sm"
+                >
+                  {loc.city}
+                </Button>
+              ))}
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
-          </form>
+          </div>
         ) : (
           <div className="text-center">
             <Button

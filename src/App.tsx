@@ -1,5 +1,5 @@
 import './App.css'
-import WeatherInSound from '@/components/weather-in-sound'
+import WeatherInSound from '@/components/weatherInSound'
 
 function App() {
 

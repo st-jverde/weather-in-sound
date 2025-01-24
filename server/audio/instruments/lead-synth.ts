@@ -9,6 +9,7 @@ import {
 export class LeadSynth implements BaseInstrument {
   private synth: Tone.PolySynth<Tone.Synth> | null = null;
   private reverb: Tone.Reverb | null = null;
+  private volume: Tone.Volume | null = null;
   private patternManager: PatternManager | null = null;
 
   private addOctave(note: string, octave: number): string {
@@ -16,11 +17,30 @@ export class LeadSynth implements BaseInstrument {
     return `${baseNote}${octave}`;
   }
 
-  private getRandomNotes(scale: string[], baseOctave: number): string[] {
-    return scale.map(note => this.addOctave(note, baseOctave));
+  private getRandomNotes(scale: string[], baseOctave: number, numNotes: number = 8): string[] {
+    const scaleCopy = [...scale];
+    const randomNotes: string[] = [];
+
+    for (let i = 0; i < numNotes; i++) {
+      // Ensure we don't run out of notes by reshuffling
+      if (scaleCopy.length === 0) {
+        scaleCopy.push(...scale);
+      }
+
+      // Remove a random note from the scale
+      const randomIndex = Math.floor(Math.random() * scaleCopy.length);
+      const selectedNote = scaleCopy.splice(randomIndex, 1)[0];
+
+      // Add the note with octave
+      randomNotes.push(this.addOctave(selectedNote, baseOctave));
+    }
+
+    return randomNotes;
   }
 
   async initialize(): Promise<void> {
+    this.volume = new Tone.Volume(-12).toDestination();
+
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: {
         type: "triangle"
@@ -59,10 +79,18 @@ export class LeadSynth implements BaseInstrument {
     this.reverb.decay = params.reverbDecay;
     Tone.Transport.bpm.value = params.bpm;
 
-    // Generate and update pattern
+    this.setVolume(-20 + (weather.windSpeed / 10));
+
+    // Generate and update pattern with randomized notes each time
     const currentNotes = this.getRandomNotes(scale.notes, params.baseOctave);
     this.patternManager.update(currentNotes);
     this.patternManager.start();
+  }
+
+  setVolume(volumeLevel: number): void {
+    if (this.volume) {
+      this.volume.volume.value = volumeLevel;
+    }
   }
 
   updatePattern(notes: string[]): void {

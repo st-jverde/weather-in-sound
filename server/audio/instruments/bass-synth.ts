@@ -7,8 +7,10 @@ import {
 } from "../../types/audio-types";
 
 export class BassSynth implements BaseInstrument {
-  private synth: Tone.PolySynth<Tone.Synth> | null = null;
+  private synth: Tone.PolySynth | null = null;
   private reverb: Tone.Reverb | null = null;
+  private chorus: Tone.Chorus | null = null;
+  private volume: Tone.Volume | null = null;
   private patternManager: PatternManager | null = null;
 
   private addOctave(note: string, octave: number): string {
@@ -18,60 +20,81 @@ export class BassSynth implements BaseInstrument {
 
   private getTriadNotes(scale: string[], baseOctave: number): string[] {
     return [
-      this.addOctave(scale[0], baseOctave - 1), // Root note, one octave lower
-      this.addOctave(scale[2], baseOctave - 1), // Third
-      this.addOctave(scale[4], baseOctave - 1)  // Fifth
+      this.addOctave(scale[0], baseOctave - 1),
+      this.addOctave(scale[2], baseOctave - 1),
+      this.addOctave(scale[4], baseOctave - 1)
     ];
   }
 
   async initialize(): Promise<void> {
-    // Using PolySynth to allow overlapping notes for the drone effect
-    this.synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: {
-        type: "sawtooth"
-      },
-      envelope: {
-        attack: 0.4,    // Slower attack for smoother transitions
-        decay: 0.5,     // Longer decay
-        sustain: 0.9,   // High sustain for continuous sound
-        release: 2.0    // Long release for overlapping
-      },
-      volume: -12
+    this.volume = new Tone.Volume(-12).toDestination();
+
+    this.synth = new Tone.PolySynth({
+      maxPolyphony: 4,
+      voice: Tone.Synth,
+      options: {
+        oscillator: {
+          type: "sawtooth"
+        },
+        envelope: {
+          attack: 0.4,
+          decay: 0.5,
+          sustain: 0.9,
+          release: 2.0
+        }
+      }
     });
+
+    this.chorus = new Tone.Chorus(4, 2.5, 0.5);
 
     this.reverb = new Tone.Reverb({
       decay: 4,
       wet: 0.3,
       preDelay: 0.1
-    }).toDestination();
+    });
 
     await this.reverb.generate();
-    this.synth.connect(this.reverb);
 
-    // Create pattern manager with longer note duration for drone effect
+    this.synth
+      .connect(this.chorus)
+      .connect(this.reverb)
+      .connect(this.volume);
+
     this.patternManager = new PatternManager((time, note) => {
       if (this.synth) {
-        // Using longer note duration and starting next note before current ends
-        this.synth.triggerAttackRelease(note, "2n", time, 0.7);
+        this.synth.triggerAttackRelease(note, "2n", time);
       }
-    }, "2n"); // Half note interval for slower changes
+    }, "2n");
   }
 
   start(weather: WeatherData): void {
-    if (!this.synth || !this.reverb || !this.patternManager) return;
+    if (!this.synth || !this.reverb || !this.volume || !this.patternManager) return;
 
     const params = AudioParameterMapper.mapWeatherToParameters(weather);
     const scale = AudioParameterMapper.getScaleForWeather(weather);
 
-    // Apply parameters
-    this.reverb.wet.value = params.reverbWet * 0.8; // Slightly reduced reverb for clarity
-    this.reverb.decay = params.reverbDecay * 1.5;   // Extended decay for drone
-    Tone.Transport.bpm.value = params.bpm * 0.5;    // Slower tempo for bass
+    this.reverb.wet.value = params.reverbWet * 0.8;
+    this.reverb.decay = params.reverbDecay * 1.5;
+    Tone.Transport.bpm.value = params.bpm * 0.5;
 
-    // Generate and update pattern with triad notes
+    // Optional: manual volume control method
+    // this.setVolume(-20);
+    this.setVolume(-20 - (weather.windSpeed / 10));
+
+    if (this.chorus) {
+      this.chorus.frequency.value = Math.min(10, weather.windSpeed / 2);
+      this.chorus.depth = Math.min(0.7, weather.windSpeed / 20);
+    }
+
     const triadNotes = this.getTriadNotes(scale.notes, params.baseOctave - 1);
     this.patternManager.update(triadNotes);
     this.patternManager.start();
+  }
+
+  setVolume(volumeLevel: number): void {
+    if (this.volume) {
+      this.volume.volume.value = volumeLevel;
+    }
   }
 
   updatePattern(notes: string[]): void {
@@ -91,6 +114,14 @@ export class BassSynth implements BaseInstrument {
     if (this.reverb) {
       this.reverb.dispose();
       this.reverb = null;
+    }
+    if (this.chorus) {
+      this.chorus.dispose();
+      this.chorus = null;
+    }
+    if (this.volume) {
+      this.volume.dispose();
+      this.volume = null;
     }
   }
 }

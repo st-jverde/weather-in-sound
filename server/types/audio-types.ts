@@ -25,6 +25,12 @@ export interface WeatherScale {
   description: string;
 }
 
+export interface Locations {
+  city: string;
+  lat: string;
+  long: string;
+}
+
 export const weatherScales: Record<string, WeatherScale> = {
   sunny: {
     notes: ["C", "E", "G", "A", "C", "E", "G", "A"],
