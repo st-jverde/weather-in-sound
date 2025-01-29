@@ -18,29 +18,30 @@ export class BassSynth implements BaseInstrument {
     return `${baseNote}${octave}`;
   }
 
-  private getTriadNotes(scale: string[], baseOctave: number): string[] {
+  private getTriadNotes(scale: string[]): string[] {
+    const bassOctave = 2; // Fixed bass octave
     return [
-      this.addOctave(scale[0], baseOctave - 1),
-      this.addOctave(scale[2], baseOctave - 1),
-      this.addOctave(scale[4], baseOctave - 1)
+      this.addOctave(scale[0], bassOctave),
+      this.addOctave(scale[2], bassOctave),
+      this.addOctave(scale[4], bassOctave)
     ];
   }
 
   async initialize(): Promise<void> {
-    this.volume = new Tone.Volume(-12).toDestination();
+    this.volume = new Tone.Volume(-6).toDestination();
 
     this.synth = new Tone.PolySynth({
-      maxPolyphony: 4,
+      maxPolyphony: 2,
       voice: Tone.Synth,
       options: {
         oscillator: {
-          type: "sawtooth"
+          type: "triangle2"
         },
         envelope: {
           attack: 0.4,
           decay: 0.5,
-          sustain: 0.9,
-          release: 2.0
+          sustain: 1,
+          release: 0.9
         }
       }
     });
@@ -48,8 +49,8 @@ export class BassSynth implements BaseInstrument {
     this.chorus = new Tone.Chorus(4, 2.5, 0.5);
 
     this.reverb = new Tone.Reverb({
-      decay: 4,
-      wet: 0.3,
+      decay: 2,
+      wet: 0.2,
       preDelay: 0.1
     });
 
@@ -73,20 +74,16 @@ export class BassSynth implements BaseInstrument {
     const params = AudioParameterMapper.mapWeatherToParameters(weather);
     const scale = AudioParameterMapper.getScaleForWeather(weather);
 
-    this.reverb.wet.value = params.reverbWet * 0.8;
-    this.reverb.decay = params.reverbDecay * 1.5;
+    // this.reverb.wet.value = params.reverbWet * 0.8;
+    // this.reverb.decay = params.reverbDecay * 1.5;
     Tone.Transport.bpm.value = params.bpm * 0.5;
-
-    // Optional: manual volume control method
-    // this.setVolume(-20);
-    this.setVolume(-20 - (weather.windSpeed / 10));
 
     if (this.chorus) {
       this.chorus.frequency.value = Math.min(10, weather.windSpeed / 2);
       this.chorus.depth = Math.min(0.7, weather.windSpeed / 20);
     }
 
-    const triadNotes = this.getTriadNotes(scale.notes, params.baseOctave - 1);
+    const triadNotes = this.getTriadNotes(scale.notes);
     this.patternManager.update(triadNotes);
     this.patternManager.start();
   }

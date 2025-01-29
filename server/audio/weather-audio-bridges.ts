@@ -26,6 +26,7 @@ export const playWeatherSound = async (weatherData: {
   humidity: number;
   windSpeed: number;
   condition: string;
+  transposition: number;
 }) => {
   try {
     if (!audioEngine) {

@@ -3,7 +3,8 @@ import {
   WeatherData,
   BaseInstrument,
   PatternManager,
-  AudioParameterMapper
+  AudioParameterMapper,
+  // weatherScales
 } from "../../types/audio-types";
 
 export class LeadSynth implements BaseInstrument {
@@ -12,16 +13,66 @@ export class LeadSynth implements BaseInstrument {
   private volume: Tone.Volume | null = null;
   private patternManager: PatternManager | null = null;
 
+  private transposeNote(note: string, semitones: number): string {
+    // Extract the note and octave
+    const match = note.match(/^([A-Ga-g]#?b?)(\d+)$/);
+    if (!match) return note; // Return the original note if format is unexpected
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, notePart, octavePart] = match;
+    let octave = parseInt(octavePart, 10);
+
+    // Define a chromatic scale
+    const chromaticScale = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const noteIndex = chromaticScale.indexOf(notePart);
+
+    if (noteIndex === -1) return note; // If the note isn't found, return it unchanged
+
+    // Calculate the new index after transposition
+    let newIndex = noteIndex + semitones;
+
+    // Adjust octave and wrap notes correctly
+    while (newIndex < 0) {
+      newIndex += chromaticScale.length;
+      octave -= 1;
+    }
+    while (newIndex >= chromaticScale.length) {
+      newIndex -= chromaticScale.length;
+      octave += 1;
+    }
+
+    return chromaticScale[newIndex] + octave;
+  }
+
+
   private addOctave(note: string, octave: number): string {
     const baseNote = note.replace(/\d+$/, '');
     return `${baseNote}${octave}`;
   }
 
-  private getRandomNotes(scale: string[], baseOctave: number, numNotes: number = 8): string[] {
+  private getRandomNotes(
+    scale: string[],
+    baseOctave: number,
+    windSpeed: number,
+    transposition: number
+  ): string[] {
+    // const numberOfNotes = Math.min(10, Math.max(1, Math.ceil(windSpeed / 10)));
+    const getNumberOfNotes = (windSpeed: number) => {
+      if (windSpeed <= 1) return 1;
+      if (windSpeed <= 5) return 2;
+      if (windSpeed <= 10) return 3;
+      if (windSpeed <= 15) return 4;
+      if (windSpeed <= 20) return 5;
+      if (windSpeed <= 25) return 6;
+      if (windSpeed <= 30) return 7;
+      return 8;
+    };
+    const numberOfNotes = getNumberOfNotes(windSpeed);
+
     const scaleCopy = [...scale];
     const randomNotes: string[] = [];
 
-    for (let i = 0; i < numNotes; i++) {
+    for (let i = 0; i < numberOfNotes; i++) {
       // Ensure we don't run out of notes by reshuffling
       if (scaleCopy.length === 0) {
         scaleCopy.push(...scale);
@@ -31,8 +82,8 @@ export class LeadSynth implements BaseInstrument {
       const randomIndex = Math.floor(Math.random() * scaleCopy.length);
       const selectedNote = scaleCopy.splice(randomIndex, 1)[0];
 
-      // Add the note with octave
-      randomNotes.push(this.addOctave(selectedNote, baseOctave));
+      const transposedNote = this.transposeNote(this.addOctave(selectedNote, baseOctave), transposition);
+      randomNotes.push(transposedNote);
     }
 
     return randomNotes;
@@ -46,7 +97,7 @@ export class LeadSynth implements BaseInstrument {
         type: "triangle"
       },
       envelope: {
-        attack: 0.1,
+        attack: 0.4,
         decay: 0.2,
         sustain: 0.6,
         release: 0.8
@@ -74,15 +125,28 @@ export class LeadSynth implements BaseInstrument {
     const params = AudioParameterMapper.mapWeatherToParameters(weather);
     const scale = AudioParameterMapper.getScaleForWeather(weather);
 
+    // const transposition = weather.transposition;
+    // const transposedNotes = selectedNotes.map(note => note + transposition);
+    // console.log(`Wind Direction: ${weatherData.windDirection}, Transposing by: ${transposition} semitones`);
+
+    this.synth.set({
+      oscillator: { type: scale.synth }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
     // Apply parameters
     this.reverb.wet.value = params.reverbWet;
     this.reverb.decay = params.reverbDecay;
     Tone.Transport.bpm.value = params.bpm;
+    console.log("synth type: ", scale.synth);
+    console.log("reverb wet: ", params.reverbWet);
+    console.log("reverb decay: ", params.reverbDecay);
+    console.log("bpm: ", params.bpm);
 
     this.setVolume(-20 + (weather.windSpeed / 10));
 
     // Generate and update pattern with randomized notes each time
-    const currentNotes = this.getRandomNotes(scale.notes, params.baseOctave);
+    const currentNotes = this.getRandomNotes(scale.notes, params.baseOctave, weather.windSpeed, weather.transposition);
     this.patternManager.update(currentNotes);
     this.patternManager.start();
   }

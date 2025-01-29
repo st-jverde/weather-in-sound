@@ -1,36 +1,6 @@
-// import dotenv from 'dotenv';
 import { fetchWeatherApi } from 'openmeteo';
 
-// Load environment variables from .env file
-// dotenv.config();
-
 const BASE_URL = "https://api.open-meteo.com/v1/forecast";
-// const VITE_GEOCODING_API_KEY = process.env.VITE_GEOCODING_API_KEY || 'default_api_key';
-
-// console.log(VITE_GEOCODING_API_KEY);
-
-// if (!VITE_GEOCODING_API_KEY) {
-//   throw new Error("VITE_GEOCODING_API_KEY is not defined in the environment variables.");
-// }
-
-// const GEOCODING_URL = "https://api.opencagedata.com/geocode/v1/json";
-
-// export async function getCoordinates(location: string): Promise<{ latitude: number; longitude: number }> {
-//   const response = await fetch(
-//     `${GEOCODING_URL}?q=${encodeURIComponent(location)}&key=${VITE_GEOCODING_API_KEY}`
-//   );
-//   if (!response.ok) {
-//     throw new Error("Failed to fetch coordinates");
-//   }
-//   const data = await response.json();
-//   if (data.results.length === 0) {
-//     throw new Error("Location not found");
-//   }
-
-//   const { lat, lng } = data.results[0].geometry;
-//   return { latitude: lat, longitude: lng };
-// }
-
 
 export async function getWeather(latitude: number, longitude: number) {
   const params = {
@@ -62,6 +32,8 @@ export async function getWeather(latitude: number, longitude: number) {
     throw new Error("Current weather data is not available");
   }
 
+  const windInfo = getWindDirectionLabel(current.variables(9)!.value());
+
   return {
     temperature: Math.round(current.variables(0)!.value()),
     humidity: Math.round(current.variables(1)!.value()),
@@ -69,9 +41,51 @@ export async function getWeather(latitude: number, longitude: number) {
     rain: Math.round(current.variables(3)!.value()),
     condition: determineCondition(current.variables(6)!.value()), // Map weather_code to a string
     windSpeed: Math.round(current.variables(8)!.value()),
-    windDirection: current.variables(9)!.value(),
+    windDirection: windInfo.label,  // Now a readable string (e.g., "North-East")
+    transposition: windInfo.transposition,  // Transposition value
   };
 }
+
+// function getTransposition(windDirection: number): number {
+//   if ((windDirection >= 337.5 && windDirection <= 360) || (windDirection >= 0 && windDirection < 22.5)) {
+//     return 0;  // North (N) → No change
+//   } else if (windDirection >= 22.5 && windDirection < 67.5) {
+//     return 2;  // North-East (NE) → Slightly up
+//   } else if (windDirection >= 67.5 && windDirection < 112.5) {
+//     return 4;  // East (E) → Higher pitch
+//   } else if (windDirection >= 112.5 && windDirection < 157.5) {
+//     return 2;  // South-East (SE) → Slightly up
+//   } else if (windDirection >= 157.5 && windDirection < 202.5) {
+//     return -3; // South (S) → Lower pitch
+//   } else if (windDirection >= 202.5 && windDirection < 247.5) {
+//     return -2; // South-West (SW) → Slightly down
+//   } else if (windDirection >= 247.5 && windDirection < 292.5) {
+//     return -4; // West (W) → Deeper tone
+//   } else {
+//     return -1; // North-West (NW) → Slightly down
+//   }
+// }
+
+function getWindDirectionLabel(windDirection: number): { label: string; transposition: number } {
+  if ((windDirection >= 337.5 && windDirection <= 360) || (windDirection >= 0 && windDirection < 22.5)) {
+    return { label: "North", transposition: 0 };
+  } else if (windDirection >= 22.5 && windDirection < 67.5) {
+    return { label: "North-East", transposition: 2 };
+  } else if (windDirection >= 67.5 && windDirection < 112.5) {
+    return { label: "East", transposition: 4 };
+  } else if (windDirection >= 112.5 && windDirection < 157.5) {
+    return { label: "South-East", transposition: 2 };
+  } else if (windDirection >= 157.5 && windDirection < 202.5) {
+    return { label: "South", transposition: -3 };
+  } else if (windDirection >= 202.5 && windDirection < 247.5) {
+    return { label: "South-West", transposition: -2 };
+  } else if (windDirection >= 247.5 && windDirection < 292.5) {
+    return { label: "West", transposition: -4 };
+  } else {
+    return { label: "North-West", transposition: -1 };
+  }
+}
+
 
 function determineCondition(weatherCode: number): string {
   // Map weather codes to human-readable conditions
@@ -91,6 +105,6 @@ function determineCondition(weatherCode: number): string {
     case 80:
       return "Windy";
     default:
-      return "Unknown";
+      return "Overcast";
   }
 }

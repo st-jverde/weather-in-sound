@@ -14,6 +14,7 @@ interface Weather {
   condition: string;
   humidity: number;
   windSpeed: number;
+  transposition: number;
 }
 
 interface Locations {
@@ -68,6 +69,7 @@ export default function WeatherInSound() {
         condition: weatherData.condition,
         humidity: weatherData.humidity,
         windSpeed: weatherData.windSpeed,
+        transposition: weatherData.transposition
       });
 
     } catch (err) {
@@ -86,6 +88,7 @@ export default function WeatherInSound() {
         condition: weather.condition,
         humidity: weather.humidity,
         windSpeed: weather.windSpeed,
+        transposition: weather.transposition
       }).catch(err => {
         console.error("Error playing weather sound:", err);
         setAudioError("Error playing sound. Please refresh the page.");
@@ -128,7 +131,7 @@ export default function WeatherInSound() {
       <div className="w-full max-w-md p-8">
         {!weather ? (
           <div className="space-y-12">
-            <h1 className="text-6xl text-center text-[#1a2e44] mb-16">WEATHER IN SOUND</h1>
+            <h1 className="text-7xl font-bold text-center text-[#1a2e44] mb-16">WEATHER IN SOUND</h1>
             <div className="grid grid-cols-3 gap-2">
               {locations.map((loc) => (
                 <Button

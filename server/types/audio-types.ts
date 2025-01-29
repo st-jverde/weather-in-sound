@@ -5,6 +5,7 @@ export interface WeatherData {
   humidity: number;
   windSpeed: number;
   condition: string;
+  transposition: number;
 }
 
 export interface AudioParameters {
@@ -22,6 +23,7 @@ export interface Note {
 export interface WeatherScale {
   notes: string[];
   midiNotes: number[];
+  synth: string;
   description: string;
 }
 
@@ -35,37 +37,43 @@ export const weatherScales: Record<string, WeatherScale> = {
   sunny: {
     notes: ["C", "E", "G", "A", "C", "E", "G", "A"],
     midiNotes: [60, 64, 67, 69, 72, 76, 79, 81],
+    synth: "sine",
     description: "Major scale with added 6th - bright and optimistic"
   },
   cloudy: {
     notes: ["C", "Eb", "F", "G", "Bb", "C", "Eb", "F"],
     midiNotes: [60, 63, 65, 67, 70, 72, 75, 77],
+    synth: "triangle",
     description: "Minor scale with flat 7th - mellow and contemplative"
   },
   overcast: {
     notes: ["C", "D", "Eb", "G", "Ab", "C", "D", "Eb"],
     midiNotes: [60, 62, 63, 67, 68, 72, 74, 75],
+    synth: "square",
     description: "Phrygian mode - dark and mysterious"
   },
   rainy: {
     notes: ["C", "Eb", "F", "G", "Ab", "C", "Eb", "F"],
     midiNotes: [60, 63, 65, 67, 68, 72, 75, 77],
+    synth: "sawtooth",
     description: "Minor scale with flat 6th - melancholic"
   },
   snowy: {
     notes: ["C", "D", "F", "G", "A", "C", "D", "F"],
     midiNotes: [60, 62, 65, 67, 69, 72, 74, 77],
+    synth: "sine",
     description: "Pentatonic scale - peaceful and floating"
   },
   windy: {
     notes: ["C", "D", "E", "F#", "G#", "A#", "C", "D"],
     midiNotes: [60, 62, 64, 66, 68, 70, 72, 74],
+    synth: "sawtooth",
     description: "Whole tone scale - swirling and unstable"
   }
 };
 
 export interface BaseInstrument {
-  initialize: () => Promise<void>;
+  initialize: (weather: WeatherData) => Promise<void>;
   start: (weather: WeatherData) => void;
   stop: () => void;
   cleanup: () => void;
