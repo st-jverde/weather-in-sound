@@ -4,7 +4,7 @@ import {
   BaseInstrument,
   PatternManager,
   AudioParameterMapper,
-  // weatherScales
+  Locations
 } from "../../types/audio-types";
 
 export class LeadSynth implements BaseInstrument {
@@ -88,6 +88,23 @@ export class LeadSynth implements BaseInstrument {
 
     return randomNotes;
   }
+  // function mapEnvelope(lat: number, long: number) {
+  //   return {
+  //     attack: 0.1 + (Math.abs(lat) / 180) * 0.6, // 0.1 → 0.7 (Poles = longer attack)
+  //     decay: 0.1 + (Math.abs(long) / 180) * 0.3, // 0.1 → 0.4 (Spread across longitudes)
+  //     sustain: 0.3 + (1 - Math.abs(long) / 180) * 0.4, // 0.3 → 0.7 (Inverse of decay)
+  //     release: 0.2 + (Math.abs(lat) / 180) * 0.8, // 0.2 → 1.0 (Poles = longer release)
+  //   };
+  // }
+
+  private mapEnvelope = (lat: number, long: number) => {
+    return {
+          attack: 0.1 + (Math.abs(lat) / 180) * 0.6, // 0.1 → 0.7 (Poles = longer attack)
+          decay: 0.1 + (Math.abs(long) / 180) * 0.3, // 0.1 → 0.4 (Spread across longitudes)
+          sustain: 0.3 + (1 - Math.abs(long) / 180) * 0.4, // 0.3 → 0.7 (Inverse of decay)
+          release: 0.2 + (Math.abs(lat) / 180) * 0.8, // 0.2 → 1.0 (Poles = longer release)
+        };
+  }
 
   async initialize(): Promise<void> {
     this.volume = new Tone.Volume(-12).toDestination();
@@ -119,7 +136,7 @@ export class LeadSynth implements BaseInstrument {
     });
   }
 
-  start(weather: WeatherData): void {
+  start(weather: WeatherData, location: Locations): void {
     if (!this.synth || !this.reverb || !this.patternManager) return;
 
     const params = AudioParameterMapper.mapWeatherToParameters(weather);
@@ -129,8 +146,12 @@ export class LeadSynth implements BaseInstrument {
     // const transposedNotes = selectedNotes.map(note => note + transposition);
     // console.log(`Wind Direction: ${weatherData.windDirection}, Transposing by: ${transposition} semitones`);
 
+    // Map envelope using latitude and longitude
+    const envelope = this.mapEnvelope(location.lat, location.long);
+
     this.synth.set({
-      oscillator: { type: scale.synth }
+      oscillator: { type: scale.synth },
+      envelope: envelope, // Apply mapped envelope values
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 

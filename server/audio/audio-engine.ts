@@ -1,5 +1,5 @@
 import * as Tone from "tone";
-import { WeatherData } from "../types/audio-types";
+import { WeatherData, Locations } from "../types/audio-types";
 import { LeadSynth } from "./instruments/lead-synth";
 import { BassSynth } from "./instruments/bass-synth";
 
@@ -32,8 +32,8 @@ export class AudioEngine {
     }
   }
 
-  playWeatherMelody(weather: WeatherData): void {
-    this.leadSynth.start(weather);
+  playWeatherMelody(weather: WeatherData, location: Locations): void {
+    this.leadSynth.start(weather, location);
     this.bassSynth.start(weather);
   }
 

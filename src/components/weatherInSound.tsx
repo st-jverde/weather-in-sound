@@ -24,16 +24,17 @@ interface Locations {
 }
 
 const locations: Locations[] = [
-  { city: "Amsterdam", lat: 52.3676, long: 4.9041 },
-  { city: "London", lat: 51.5074, long: -0.1278 },
-  { city: "Montreal", lat: 45.5017, long: -73.5673 },
-  { city: "Tokyo", lat: 35.6762, long: 139.6503 },
-  { city: "Quito", lat: -0.180653, long: -78.467834 },
-  { city: "Berlin", lat: 52.5200, long: 13.4050 },
-  { city: "Yerevan", lat: 40.179188, long: 44.499104 },
-  { city: "Nairobi", lat: -1.2864, long: 36.8172 },
-  { city: "Bangkok", lat: 13.756331, long: 100.501762 },
+  { city: "Amsterdam", lat: 52.3676, long: 4.9041 }, // Base city
+  { city: "Arica", lat: -18.4783, long: -70.3211 }, // Driest city in the world
+  { city: "Kuwait City", lat: 29.3759, long: 47.9774 }, // One of the hottest cities
+  { city: "Dakhla", lat: 23.6848, long: -15.9570 }, // One of the driest places in Africa & heavy desert winds
+  { city: "Mawsynram", lat: 25.2986, long: 91.5822 }, // Wettest place on Earth
+  { city: "Wellington", lat: -41.2865, long: 174.7762 }, // Windiest city
+  { city: "Utqiagvik", lat: 71.2906, long: -156.7886 }, // Extreme cold & polar night
+  { city: "Jakarta", lat: -6.2088, long: 106.8456 }, // One of the most humid cities
+  { city: "La Paz", lat: -16.5000, long: -68.1500 }, // Highest capital city (3,650m)
 ];
+
 
 export default function WeatherInSound() {
   const [selectedLocation, setSelectedLocation] = useState<Locations | null>(null);
@@ -81,20 +82,23 @@ export default function WeatherInSound() {
   };
 
   useEffect(() => {
-    if (weather && audioInitialized) {
+    if (weather && audioInitialized && selectedLocation) {
       console.log("Updated weather state:", weather);
       playWeatherSound({
         temperature: weather.temperature,
         condition: weather.condition,
         humidity: weather.humidity,
         windSpeed: weather.windSpeed,
-        transposition: weather.transposition
-      }).catch(err => {
+        transposition: weather.transposition,
+        lat: selectedLocation.lat,
+        long: selectedLocation.long
+      })
+      .catch(err => {
         console.error("Error playing weather sound:", err);
         setAudioError("Error playing sound. Please refresh the page.");
       });
     }
-  }, [weather, audioInitialized]);
+  }, [weather, audioInitialized, selectedLocation]);
 
   useEffect(() => {
     return () => {

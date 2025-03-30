@@ -29,8 +29,8 @@ export interface WeatherScale {
 
 export interface Locations {
   city: string;
-  lat: string;
-  long: string;
+  lat: number;
+  long: number;
 }
 
 export const weatherScales: Record<string, WeatherScale> = {
@@ -74,7 +74,7 @@ export const weatherScales: Record<string, WeatherScale> = {
 
 export interface BaseInstrument {
   initialize: (weather: WeatherData) => Promise<void>;
-  start: (weather: WeatherData) => void;
+  start: (weather: WeatherData, location: Locations) => void;
   stop: () => void;
   cleanup: () => void;
   updatePattern?: (notes: string[]) => void;

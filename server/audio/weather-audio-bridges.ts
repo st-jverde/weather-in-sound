@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { AudioEngine } from './audio-engine';
+import { Locations } from 'server/types/audio-types';
 
 let audioEngine: AudioEngine | null = null;
 
@@ -27,6 +28,8 @@ export const playWeatherSound = async (weatherData: {
   windSpeed: number;
   condition: string;
   transposition: number;
+  lat: number;
+  long: number;
 }) => {
   try {
     if (!audioEngine) {
@@ -37,7 +40,12 @@ export const playWeatherSound = async (weatherData: {
       Tone.Transport.start();
     }
 
-    audioEngine?.playWeatherMelody(weatherData);
+    const location: Locations = {
+      city: "Your City Name", // Add the city here
+      lat: weatherData.lat,
+      long: weatherData.long
+    };
+    audioEngine?.playWeatherMelody(weatherData, location);
   } catch (error) {
     console.error('Error playing weather sound:', error);
     throw error;
