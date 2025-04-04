@@ -11,6 +11,7 @@ export class LeadSynth implements BaseInstrument {
   private synth: Tone.PolySynth<Tone.Synth> | null = null;
   private reverb: Tone.Reverb | null = null;
   private volume: Tone.Volume | null = null;
+  // private lfo: Tone.LFO | null = null;
   private patternManager: PatternManager | null = null;
 
   private transposeNote(note: string, semitones: number): string {
@@ -58,17 +59,17 @@ export class LeadSynth implements BaseInstrument {
   ): string[] {
     // const numberOfNotes = Math.min(10, Math.max(1, Math.ceil(windSpeed / 10)));
     const getNumberOfNotes = (windSpeed: number) => {
-      if (windSpeed <= 1) return 1;
-      if (windSpeed <= 5) return 2;
-      if (windSpeed <= 10) return 3;
-      if (windSpeed <= 15) return 4;
-      if (windSpeed <= 20) return 5;
-      if (windSpeed <= 25) return 6;
-      if (windSpeed <= 30) return 7;
-      return 8;
+      if (windSpeed <= 1) return 3;
+      if (windSpeed <= 5) return 6;
+      if (windSpeed <= 10) return 8;
+      if (windSpeed <= 15) return 9;
+      if (windSpeed <= 20) return 10;
+      if (windSpeed <= 25) return 12;
+      if (windSpeed <= 30) return 15;
+      return 1;
     };
     const numberOfNotes = getNumberOfNotes(windSpeed);
-
+    console.log("numberOfNotes: ", numberOfNotes);
     const scaleCopy = [...scale];
     const randomNotes: string[] = [];
 
@@ -130,6 +131,7 @@ export class LeadSynth implements BaseInstrument {
 
     await this.reverb.generate();
     this.synth.connect(this.reverb);
+    // this.synth.connect(this.volume);
 
     this.patternManager = new PatternManager((time, note) => {
       this.synth?.triggerAttackRelease(note, "8n", time);
@@ -172,6 +174,23 @@ export class LeadSynth implements BaseInstrument {
     this.patternManager.start();
   }
 
+  // Dispose previous LFO if it exists
+  // if (lfo) {
+  //   this.lfo.dispose();
+  // }
+
+  // // Create and configure LFO for volume modulation
+  // const lfoRate = 0.1 + (weather.temperature / 100) * 5; // 0.1 to 5 Hz
+  // const lfoDepth = (weather.humidity / 100) * 12; // Up to 12 dB variation
+
+  // this.lfo = new Tone.LFO({
+  //   frequency: lfoRate,
+  //   min: -lfoDepth,
+  //   max: lfoDepth
+  // }).start();
+
+  // this.lfo.connect(this.volume.volume);
+
   setVolume(volumeLevel: number): void {
     if (this.volume) {
       this.volume.volume.value = volumeLevel;
@@ -196,5 +215,9 @@ export class LeadSynth implements BaseInstrument {
       this.reverb.dispose();
       this.reverb = null;
     }
+    // if (this.lfo) {
+    //   this.lfo.dispose();
+    //   this.lfo = null;
+    // }
   }
 }
