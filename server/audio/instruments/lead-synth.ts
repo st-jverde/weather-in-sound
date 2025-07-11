@@ -120,7 +120,7 @@ export class LeadSynth implements BaseInstrument {
         sustain: 0.6,
         release: 0.8
       },
-      volume: -6
+      volume: -8
     });
 
     this.reverb = new Tone.Reverb({
