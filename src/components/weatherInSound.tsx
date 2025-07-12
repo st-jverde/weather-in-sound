@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getWeather } from '../../server/weather';
-import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft } from 'lucide-react';
+import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft, Music, Volume2, VolumeX } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   initializeAudioEngine,
   playWeatherSound,
   stopWeatherSound,
-  cleanupAudioEngine
+  cleanupAudioEngine,
+  toggleMelody,
+  toggleLead,
+  toggleBass
 } from '../../server/audio/weather-audio-bridges';
 
 interface Weather {
@@ -44,6 +47,11 @@ export default function WeatherInSound() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [instrumentStates, setInstrumentStates] = useState({
+    melody: true,
+    lead: true,
+    bass: true
+  });
 
   const handleLocationSelect = async (selectedLoc: Locations) => {
     setSelectedLocation(selectedLoc);
@@ -115,6 +123,24 @@ export default function WeatherInSound() {
     cleanupAudioEngine();
   };
 
+  const handleToggleMelody = () => {
+    const newState = !instrumentStates.melody;
+    setInstrumentStates(prev => ({ ...prev, melody: newState }));
+    toggleMelody(newState);
+  };
+
+  const handleToggleLead = () => {
+    const newState = !instrumentStates.lead;
+    setInstrumentStates(prev => ({ ...prev, lead: newState }));
+    toggleLead(newState);
+  };
+
+  const handleToggleBass = () => {
+    const newState = !instrumentStates.bass;
+    setInstrumentStates(prev => ({ ...prev, bass: newState }));
+    toggleBass(newState);
+  };
+
   const getWeatherIcon = (condition: string) => {
     switch (condition) {
       case 'Sunny':
@@ -166,9 +192,43 @@ export default function WeatherInSound() {
             </div>
             <p className="text-6xl font-bold mb-6 text-[#1a2e44]">{weather.temperature}°C</p>
             <p className="text-2xl mb-4 text-[#1a2e44] uppercase">{weather.condition}</p>
-            <div className="grid grid-cols-2 gap-4 text-sm text-[#1a2e44]">
+            <div className="grid grid-cols-2 gap-4 text-sm text-[#1a2e44] mb-8">
               <p>HUMIDITY: {weather.humidity}%</p>
               <p>WIND: {weather.windSpeed} KM/H</p>
+            </div>
+
+            {/* Instrument Controls */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-[#1a2e44] flex items-center justify-center gap-2">
+                <Music className="w-5 h-5" />
+                INSTRUMENTS
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  onClick={handleToggleMelody}
+                  variant={instrumentStates.melody ? "default" : "outline"}
+                  className="flex flex-col items-center gap-1 h-16 text-xs"
+                >
+                  {instrumentStates.melody ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  MELODY
+                </Button>
+                <Button
+                  onClick={handleToggleLead}
+                  variant={instrumentStates.lead ? "default" : "outline"}
+                  className="flex flex-col items-center gap-1 h-16 text-xs"
+                >
+                  {instrumentStates.lead ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  LEAD
+                </Button>
+                <Button
+                  onClick={handleToggleBass}
+                  variant={instrumentStates.bass ? "default" : "outline"}
+                  className="flex flex-col items-center gap-1 h-16 text-xs"
+                >
+                  {instrumentStates.bass ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  BASS
+                </Button>
+              </div>
             </div>
           </div>
         )}

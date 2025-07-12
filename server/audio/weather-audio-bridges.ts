@@ -65,3 +65,29 @@ export const cleanupAudioEngine = () => {
     Tone.Transport.stop();
   }
 };
+
+// Individual instrument controls
+export const toggleMelody = (enabled: boolean) => {
+  if (audioEngine) {
+    audioEngine.toggleMelody(enabled);
+  }
+};
+
+export const toggleLead = (enabled: boolean) => {
+  if (audioEngine) {
+    audioEngine.toggleLead(enabled);
+  }
+};
+
+export const toggleBass = (enabled: boolean) => {
+  if (audioEngine) {
+    audioEngine.toggleBass(enabled);
+  }
+};
+
+export const getInstrumentStates = () => {
+  if (audioEngine) {
+    return audioEngine.getInstrumentStates();
+  }
+  return { melody: true, lead: true, bass: true };
+};
