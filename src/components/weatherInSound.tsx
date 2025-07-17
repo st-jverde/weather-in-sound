@@ -11,6 +11,7 @@ import {
   toggleLead,
   toggleBass
 } from '../../server/audio/weather-audio-bridges';
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 interface Weather {
   temperature: number;
@@ -24,18 +25,19 @@ interface Locations {
   city: string;
   long: number;
   lat: number;
+  feature: string;
 }
 
 const locations: Locations[] = [
-  { city: "Amsterdam", lat: 52.3676, long: 4.9041 }, // Base city
-  { city: "Arica", lat: -18.4783, long: -70.3211 }, // Driest city in the world
-  { city: "Kuwait City", lat: 29.3759, long: 47.9774 }, // One of the hottest cities
-  { city: "Dakhla", lat: 23.6848, long: -15.9570 }, // One of the driest places in Africa & heavy desert winds
-  { city: "Mawsynram", lat: 25.2986, long: 91.5822 }, // Wettest place on Earth
-  { city: "Wellington", lat: -41.2865, long: 174.7762 }, // Windiest city
-  { city: "Utqiagvik", lat: 71.2906, long: -156.7886 }, // Extreme cold & polar night
-  { city: "Jakarta", lat: -6.2088, long: 106.8456 }, // One of the most humid cities
-  { city: "La Paz", lat: -16.5000, long: -68.1500 }, // Highest capital city (3,650m)
+  { city: "Amsterdam", lat: 52.3676, long: 4.9041, feature: "Home" }, // Base city
+  { city: "Arica", lat: -18.4783, long: -70.3211, feature: "Driest city in the world" }, // Driest city in the world
+  { city: "Kuwait City", lat: 29.3759, long: 47.9774, feature: "One of the hottest cities" }, // One of the hottest cities
+  { city: "Dakhla", lat: 23.6848, long: -15.9570, feature: "One of the driest places & heavy desert winds" }, // One of the driest places in Africa & heavy desert winds
+  { city: "Mawsynram", lat: 25.2986, long: 91.5822, feature: "Wettest place on Earth" }, // Wettest place on Earth
+  { city: "Wellington", lat: -41.2865, long: 174.7762, feature: "Windiest city" }, // Windiest city
+  { city: "Utqiagvik", lat: 71.2906, long: -156.7886, feature: "Extreme cold & polar night" }, // Extreme cold & polar night
+  { city: "Jakarta", lat: -6.2088, long: 106.8456, feature: "One of the most humid cities" }, // One of the most humid cities
+  { city: "La Paz", lat: -16.5000, long: -68.1500, feature: "Highest capital city (3,650m)" }, // Highest capital city (3,650m)
 ];
 
 
@@ -52,6 +54,7 @@ export default function WeatherInSound() {
     lead: true,
     bass: true
   });
+  const [hoveredCity, setHoveredCity] = useState<string | null>(null);
 
   const handleLocationSelect = async (selectedLoc: Locations) => {
     setSelectedLocation(selectedLoc);
@@ -164,15 +167,27 @@ export default function WeatherInSound() {
             <h1 className="text-7xl font-bold text-center text-[#1a2e44] mb-16">WEATHER IN SOUND</h1>
             <div className="grid grid-cols-3 gap-2">
               {locations.map((loc) => (
-                <Button
+                <Popover
                   key={loc.city}
-                  onClick={() => handleLocationSelect(loc)}
-                  disabled={loading}
-                  variant={selectedLocation?.city === loc.city ? "default" : "outline"}
-                  className="w-full h-12 text-sm"
+                  open={hoveredCity === loc.city}
+                  onOpenChange={() => {}}
                 >
-                  {loc.city}
-                </Button>
+                  <PopoverTrigger asChild>
+                    <Button
+                      onClick={() => handleLocationSelect(loc)}
+                      disabled={loading}
+                      variant={selectedLocation?.city === loc.city ? "default" : "outline"}
+                      className="w-full h-12 text-sm"
+                      onMouseEnter={() => setHoveredCity(loc.city)}
+                      onMouseLeave={() => setHoveredCity(null)}
+                    >
+                      {loc.city}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-48 pointer-events-none select-none" sideOffset={8} align="center">
+                    <span className="text-sm text-center block">{loc.feature}</span>
+                  </PopoverContent>
+                </Popover>
               ))}
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
