@@ -72,36 +72,76 @@ export const weatherScales: Record<string, WeatherScale> = {
   }
 };
 
+export interface NoteData {
+  note: string;
+  velocity: number;
+  silent: boolean;
+}
+
 export interface BaseInstrument {
   initialize: (weather: WeatherData) => Promise<void>;
   start: (weather: WeatherData, location: Locations) => void;
   stop: () => void;
   cleanup: () => void;
-  updatePattern?: (notes: string[]) => void;
+  updatePattern?: (notes: string[] | NoteData[]) => void;
 }
 
 export class PatternManager {
   private pattern: Tone.Pattern<string> | null = null;
+  private currentNoteData: NoteData[] | null = null;
 
   constructor(
-    private callback: (time: number, note: string) => void,
+    private callback: (time: number, note: string, velocity?: number) => void,
     private interval: string = "8n"
   ) {}
 
-  create(notes: string[]): void {
+  create(notes: string[] | NoteData[]): void {
     if (this.pattern) {
       this.pattern.stop();
       this.pattern.dispose();
     }
 
-    this.pattern = new Tone.Pattern(this.callback, notes, "up");
+    // Store the current note data if it's NoteData[]
+    if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]) {
+      this.currentNoteData = notes as NoteData[];
+    } else {
+      this.currentNoteData = null;
+    }
+
+    // Filter out silent notes and extract just the note strings
+    const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]
+      ? (notes as NoteData[]).filter(n => !n.silent).map(n => n.note)
+      : notes as string[];
+
+    this.pattern = new Tone.Pattern((time, note) => {
+      // Find the original note data to get velocity
+      if (this.currentNoteData) {
+        const noteData = this.currentNoteData.find(n => n.note === note);
+        this.callback(time, note, noteData?.velocity);
+      } else {
+        this.callback(time, note);
+      }
+    }, noteStrings, "up");
+
     this.pattern.interval = this.interval;
     this.pattern.probability = 1;
   }
 
-  update(notes: string[]): void {
+  update(notes: string[] | NoteData[]): void {
     if (this.pattern) {
-      this.pattern.values = notes;
+      // Store the current note data if it's NoteData[]
+      if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]) {
+        this.currentNoteData = notes as NoteData[];
+      } else {
+        this.currentNoteData = null;
+      }
+
+      // Filter out silent notes and extract just the note strings
+      const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]
+        ? (notes as NoteData[]).filter(n => !n.silent).map(n => n.note)
+        : notes as string[];
+
+      this.pattern.values = noteStrings;
     } else {
       this.create(notes);
     }
@@ -117,6 +157,7 @@ export class PatternManager {
       this.pattern.dispose();
       this.pattern = null;
     }
+    this.currentNoteData = null;
   }
 }
 

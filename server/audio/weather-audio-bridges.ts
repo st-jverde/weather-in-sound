@@ -89,5 +89,5 @@ export const getInstrumentStates = () => {
   if (audioEngine) {
     return audioEngine.getInstrumentStates();
   }
-  return { melody: true, lead: true, bass: true };
+  return { melody: false, lead: true, bass: true };
 };

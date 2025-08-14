@@ -50,7 +50,7 @@ export default function WeatherInSound() {
   const [error, setError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [instrumentStates, setInstrumentStates] = useState({
-    melody: true,
+    melody: false,
     lead: true,
     bass: true
   });
@@ -223,6 +223,7 @@ export default function WeatherInSound() {
                   onClick={handleToggleMelody}
                   variant={instrumentStates.melody ? "default" : "outline"}
                   className="flex flex-col items-center gap-1 h-16 text-xs"
+                  disabled={true}
                 >
                   {instrumentStates.melody ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   MELODY

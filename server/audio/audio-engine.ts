@@ -13,7 +13,7 @@ export class AudioEngine {
   private currentLocation: Locations | null = null;
 
   // Individual instrument controls
-  private melodyEnabled: boolean = true;
+  private melodyEnabled: boolean = false; // Changed from true to false
   private leadEnabled: boolean = true;
   private bassEnabled: boolean = true;
 
