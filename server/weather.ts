@@ -16,7 +16,8 @@ export async function getWeather(latitude: number, longitude: number) {
       "weather_code",
       "cloud_cover",
       "wind_speed_10m",
-      "wind_direction_10m"
+      "wind_direction_10m",
+      "surface_pressure"
     ],
   };
 
@@ -43,6 +44,7 @@ export async function getWeather(latitude: number, longitude: number) {
     windSpeed: Math.round(current.variables(8)!.value()),
     windDirection: windInfo.label,  // Now a readable string (e.g., "North-East")
     transposition: windInfo.transposition,  // Transposition value
+    airPressure: Math.round(current.variables(10)!.value()),
   };
 }
 

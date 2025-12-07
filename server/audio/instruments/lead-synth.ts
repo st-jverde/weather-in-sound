@@ -57,7 +57,8 @@ export class LeadSynth implements BaseInstrument {
     baseOctave: number,
     windSpeed: number,
     transposition: number,
-    humidity: number
+    humidity: number,
+    airPressure: number
   ): { note: string; velocity: number; silent: boolean }[] {
     const getNumberOfNotes = (windSpeed: number) => {
       if (windSpeed <= 1) return 3;
@@ -67,11 +68,13 @@ export class LeadSynth implements BaseInstrument {
       if (windSpeed <= 20) return 10;
       if (windSpeed <= 25) return 12;
       if (windSpeed <= 30) return 15;
-      return 1;
+      return 3; // Minimum of 3 notes
     };
     const numberOfNotes = getNumberOfNotes(windSpeed);
+
     console.log("numberOfNotes: ", numberOfNotes);
-    console.log("Humidity: ", humidity, "% - Silent threshold: ", Math.pow(1 - (humidity / 100), 0.5).toFixed(2));
+    console.log("Humidity: ", humidity, "%");
+    console.log("Air Pressure: ", airPressure, "hPa");
 
     const scaleCopy = [...scale];
     const randomNotes: { note: string; velocity: number; silent: boolean }[] = [];
@@ -88,39 +91,28 @@ export class LeadSynth implements BaseInstrument {
 
       const transposedNote = this.transposeNote(this.addOctave(selectedNote, baseOctave), transposition);
 
-      // Determine if note should be silent based on humidity
-      const silentThreshold = Math.pow(1 - (humidity / 100), 0.5); // Square root makes it more aggressive
-      const isSilent = Math.random() < silentThreshold;
+      // Calculate velocity based on wind speed (all notes get velocity, decision to play happens at runtime)
+      // Base velocity range: 0.3 to 1.0
+      const baseVelocity = 0.3 + Math.random() * 0.7;
 
-      // Calculate velocity based on wind speed
-      let velocity: number;
-      if (isSilent) {
-        velocity = 0; // Silent notes have 0 velocity
-      } else {
-        // Base velocity range: 0.3 to 1.0
-        const baseVelocity = 0.3 + Math.random() * 0.7;
+      // Wind speed affects velocity dynamics
+      // Low wind speed: gentle wave (velocities closer together)
+      // High wind speed: more dynamic (bigger gaps in velocity)
+      const windFactor = Math.min(windSpeed / 30, 1); // Normalize wind speed to 0-1
+      const dynamicRange = 0.2 + (windFactor * 0.6); // 0.2 to 0.8 range
 
-        // Wind speed affects velocity dynamics
-        // Low wind speed: gentle wave (velocities closer together)
-        // High wind speed: more dynamic (bigger gaps in velocity)
-        const windFactor = Math.min(windSpeed / 30, 1); // Normalize wind speed to 0-1
-        const dynamicRange = 0.2 + (windFactor * 0.6); // 0.2 to 0.8 range
-
-        // Apply wind-based dynamics
-        const dynamicOffset = (Math.random() - 0.5) * dynamicRange;
-        velocity = Math.max(0.1, Math.min(1.0, baseVelocity + dynamicOffset));
-      }
+      // Apply wind-based dynamics
+      const dynamicOffset = (Math.random() - 0.5) * dynamicRange;
+      const velocity = Math.max(0.1, Math.min(1.0, baseVelocity + dynamicOffset));
 
       randomNotes.push({
         note: transposedNote,
         velocity: velocity,
-        silent: isSilent
+        silent: false // All notes are potentially playable, decision made at runtime
       });
     }
 
-    const silentCount = randomNotes.filter(n => n.silent).length;
-    const activeCount = randomNotes.filter(n => !n.silent).length;
-    console.log(`Generated ${randomNotes.length} notes: ${activeCount} active, ${silentCount} silent`);
+    console.log(`Generated ${randomNotes.length} notes (play decision made at runtime based on air pressure)`);
 
     return randomNotes;
   }
@@ -210,8 +202,12 @@ export class LeadSynth implements BaseInstrument {
 
     this.setVolume(-20 + (weather.windSpeed / 10));
 
+    // Set air pressure and humidity in pattern manager for runtime evaluation
+    this.patternManager.setAirPressure(weather.airPressure);
+    this.patternManager.setHumidity(weather.humidity);
+
     // Generate and update pattern with randomized notes each time
-    const currentNotes = this.getRandomNotes(scale.notes, params.baseOctave, weather.windSpeed, weather.transposition, weather.humidity);
+    const currentNotes = this.getRandomNotes(scale.notes, params.baseOctave, weather.windSpeed, weather.transposition, weather.humidity, weather.airPressure);
     this.patternManager.update(currentNotes);
     this.patternManager.start();
   }

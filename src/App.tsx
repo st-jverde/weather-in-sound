@@ -4,7 +4,7 @@ import WeatherInSound from '@/components/weatherInSound'
 function App() {
 
   return (
-    <div>
+    <div className="dark">
       <WeatherInSound />
     </div>
   )

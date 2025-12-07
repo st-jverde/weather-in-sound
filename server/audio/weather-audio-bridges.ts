@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { AudioEngine } from './audio-engine';
-import { Locations } from 'server/types/audio-types';
+import { Locations, WeatherData } from 'server/types/audio-types';
 
 let audioEngine: AudioEngine | null = null;
 
@@ -28,6 +28,7 @@ export const playWeatherSound = async (weatherData: {
   windSpeed: number;
   condition: string;
   transposition: number;
+  airPressure: number;
   lat: number;
   long: number;
 }) => {
@@ -45,7 +46,17 @@ export const playWeatherSound = async (weatherData: {
       lat: weatherData.lat,
       long: weatherData.long
     };
-    audioEngine?.playWeatherMelody(weatherData, location);
+
+    const weather: WeatherData = {
+      temperature: weatherData.temperature,
+      humidity: weatherData.humidity,
+      windSpeed: weatherData.windSpeed,
+      condition: weatherData.condition,
+      transposition: weatherData.transposition,
+      airPressure: weatherData.airPressure
+    };
+
+    audioEngine?.playWeatherMelody(weather, location);
   } catch (error) {
     console.error('Error playing weather sound:', error);
     throw error;
@@ -90,4 +101,16 @@ export const getInstrumentStates = () => {
     return audioEngine.getInstrumentStates();
   }
   return { melody: false, lead: true, bass: true };
+};
+
+export const muteAudio = () => {
+  Tone.getDestination().volume.rampTo(-Infinity, 0.1);
+};
+
+export const unmuteAudio = () => {
+  Tone.getDestination().volume.rampTo(0, 0.1);
+};
+
+export const isMuted = (): boolean => {
+  return Tone.getDestination().volume.value === -Infinity;
 };
