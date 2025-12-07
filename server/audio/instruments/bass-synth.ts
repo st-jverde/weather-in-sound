@@ -3,7 +3,8 @@ import {
   WeatherData,
   BaseInstrument,
   PatternManager,
-  AudioParameterMapper
+  AudioParameterMapper,
+  NoteData
 } from "../../types/audio-types";
 
 export class BassSynth implements BaseInstrument {
@@ -94,7 +95,7 @@ export class BassSynth implements BaseInstrument {
     }
   }
 
-  updatePattern(notes: string[]): void {
+  updatePattern(notes: string[] | NoteData[]): void {
     this.patternManager?.update(notes);
   }
 

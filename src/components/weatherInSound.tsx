@@ -8,8 +8,7 @@ import {
   stopWeatherSound,
   cleanupAudioEngine,
   muteAudio,
-  unmuteAudio,
-  isMuted
+  unmuteAudio
 } from '../../server/audio/weather-audio-bridges';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
