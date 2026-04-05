@@ -1,67 +1,98 @@
 import * as Tone from "tone";
-import { WeatherData, BaseInstrument, AudioParameterMapper } from "../../types/audio-types";
-import { getMelodyPattern, MelodyPattern } from "../melody-patterns";
+import {
+  WeatherData,
+  BaseInstrument,
+  AudioParameterMapper,
+  CompositionParams,
+  Locations
+} from "../../types/audio-types";
+import { buildMelodyPhrase, MelodyPartValue } from "../melody-phrase";
+import { clamp } from "../music-utils";
 
 export class MelodySynth implements BaseInstrument {
   private synth: Tone.PolySynth<Tone.Synth> | null = null;
+  private reverb: Tone.Reverb | null = null;
+  private melodyVolume: Tone.Volume | null = null;
+  private filter: Tone.Filter | null = null;
   private pattern: Tone.Part | null = null;
   private isPlaying: boolean = false;
-  private currentPattern: MelodyPattern | null = null;
 
-  async initialize(): Promise<void> {
+  async initialize(destination?: Tone.ToneAudioNode): Promise<void> {
+    const dest = destination ?? Tone.getDestination();
+
+    this.melodyVolume = new Tone.Volume(-18);
+    this.filter = new Tone.Filter(3200, "lowpass");
+
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "triangle" },
-      envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.5 },
-      volume: -5 // Increased volume from -10 to -5
-    }).toDestination();
-    console.log("MelodySynth initialized");
+      envelope: { attack: 0.08, decay: 0.15, sustain: 0.55, release: 0.45 },
+      volume: -6
+    });
+
+    this.reverb = new Tone.Reverb({
+      decay: 3,
+      wet: 0.35,
+      preDelay: 0.05
+    });
+
+    await this.reverb.generate();
+
+    this.synth.connect(this.filter);
+    this.filter.connect(this.reverb);
+    this.reverb.connect(this.melodyVolume);
+    this.melodyVolume.connect(dest);
   }
 
-  start(weather: WeatherData): void {
-    if (!this.synth) {
+  start(weather: WeatherData, params: CompositionParams, location?: Locations): void {
+    void location;
+    if (!this.synth || !this.reverb || !this.melodyVolume || !this.filter) {
       console.error("MelodySynth not initialized");
       return;
     }
 
-    console.log("MelodySynth starting with weather:", weather);
-    const params = AudioParameterMapper.mapWeatherToParameters(weather);
     Tone.Transport.bpm.value = params.bpm;
-    this.currentPattern = getMelodyPattern(weather.condition.toLowerCase());
+
+    this.reverb.wet.value = clamp(params.reverbWet * 0.95, 0.1, 0.75);
+    this.reverb.decay = clamp(params.reverbDecay * 1.05, 0.5, 9);
+
+    const wetDarken = params.atmosphereWet;
+    this.filter.frequency.value = 1800 + (1 - wetDarken) * 2200 + params.dayBrightness * 400;
+    this.melodyVolume.volume.value = -22 + params.dayBrightness * 8 - wetDarken * 3;
+
+    const scale = AudioParameterMapper.getScaleForWeather(weather);
+    const phrase = buildMelodyPhrase(weather, scale, params);
+    const partEvents: [string | number, MelodyPartValue][] = phrase.map(([t, v]) => [t, v]);
+
     this.isPlaying = true;
-    this.schedulePattern();
+    this.schedulePattern(partEvents);
   }
 
-  private schedulePattern() {
-    if (!this.currentPattern || !this.synth) {
-      console.error("No pattern or synth available for melody");
-      return;
-    }
+  private schedulePattern(partEvents: [string | number, MelodyPartValue][]) {
+    if (!this.synth) return;
 
-    // Stop any existing pattern
     if (this.pattern) {
       this.pattern.dispose();
       this.pattern = null;
     }
 
-    console.log("Scheduling melody pattern:", this.currentPattern.pattern);
-
-    // Create a simple repeating pattern that plays every 2 measures
-    this.pattern = new Tone.Part((time, note) => {
+    this.pattern = new Tone.Part((time, value: MelodyPartValue) => {
       if (!this.isPlaying || !this.synth) return;
-      console.log(`Melody playing note: ${note.note} at ${time}`);
-      this.synth.triggerAttackRelease(note.note, note.duration, time);
-    }, this.currentPattern.pattern);
+      const startSec =
+        Tone.Time(time).toSeconds() + (Math.random() - 0.5) * 0.02;
+      this.synth.triggerAttackRelease(
+        value.note,
+        value.duration,
+        startSec,
+        value.velocity
+      );
+    }, partEvents);
 
-    // Start the pattern immediately and repeat every 2 measures
-    this.pattern.start(0);
     this.pattern.loop = true;
     this.pattern.loopEnd = "2m";
-
-    console.log("Melody pattern scheduled and started");
+    this.pattern.start(0);
   }
 
   stop(): void {
-    console.log("MelodySynth stopping");
     this.isPlaying = false;
     if (this.pattern) {
       this.pattern.dispose();
@@ -74,6 +105,18 @@ export class MelodySynth implements BaseInstrument {
     if (this.synth) {
       this.synth.dispose();
       this.synth = null;
+    }
+    if (this.reverb) {
+      this.reverb.dispose();
+      this.reverb = null;
+    }
+    if (this.melodyVolume) {
+      this.melodyVolume.dispose();
+      this.melodyVolume = null;
+    }
+    if (this.filter) {
+      this.filter.dispose();
+      this.filter = null;
     }
   }
 }

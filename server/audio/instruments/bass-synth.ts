@@ -3,9 +3,11 @@ import {
   WeatherData,
   BaseInstrument,
   PatternManager,
+  NoteData,
   AudioParameterMapper,
-  NoteData
+  CompositionParams
 } from "../../types/audio-types";
+import { addOctave } from "../music-utils";
 
 export class BassSynth implements BaseInstrument {
   private synth: Tone.PolySynth | null = null;
@@ -14,22 +16,19 @@ export class BassSynth implements BaseInstrument {
   private volume: Tone.Volume | null = null;
   private patternManager: PatternManager | null = null;
 
-  private addOctave(note: string, octave: number): string {
-    const baseNote = note.replace(/\d+$/, '');
-    return `${baseNote}${octave}`;
-  }
-
   private getTriadNotes(scale: string[]): string[] {
-    const bassOctave = 2; // Fixed bass octave
+    const bassOctave = 2;
     return [
-      this.addOctave(scale[0], bassOctave),
-      this.addOctave(scale[2], bassOctave),
-      this.addOctave(scale[4], bassOctave)
+      addOctave(scale[0], bassOctave),
+      addOctave(scale[2], bassOctave),
+      addOctave(scale[4], bassOctave)
     ];
   }
 
-  async initialize(): Promise<void> {
-    this.volume = new Tone.Volume(-6).toDestination();
+  async initialize(destination?: Tone.ToneAudioNode): Promise<void> {
+    const dest = destination ?? Tone.getDestination();
+
+    this.volume = new Tone.Volume(-6);
 
     this.synth = new Tone.PolySynth({
       maxPolyphony: 2,
@@ -57,10 +56,8 @@ export class BassSynth implements BaseInstrument {
 
     await this.reverb.generate();
 
-    this.synth
-      .connect(this.chorus)
-      .connect(this.reverb)
-      .connect(this.volume);
+    this.synth.connect(this.chorus).connect(this.reverb).connect(this.volume);
+    this.volume.connect(dest);
 
     this.patternManager = new PatternManager((time, note) => {
       if (this.synth) {
@@ -69,14 +66,11 @@ export class BassSynth implements BaseInstrument {
     }, "2n");
   }
 
-  start(weather: WeatherData): void {
+  start(weather: WeatherData, params: CompositionParams): void {
     if (!this.synth || !this.reverb || !this.volume || !this.patternManager) return;
 
-    const params = AudioParameterMapper.mapWeatherToParameters(weather);
     const scale = AudioParameterMapper.getScaleForWeather(weather);
 
-    // this.reverb.wet.value = params.reverbWet * 0.8;
-    // this.reverb.decay = params.reverbDecay * 1.5;
     Tone.Transport.bpm.value = params.bpm * 0.5;
 
     if (this.chorus) {

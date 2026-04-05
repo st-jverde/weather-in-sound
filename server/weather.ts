@@ -41,6 +41,7 @@ export async function getWeather(latitude: number, longitude: number) {
     isDay: current.variables(2)!.value(),
     rain: Math.round(current.variables(3)!.value()),
     condition: determineCondition(current.variables(6)!.value()), // Map weather_code to a string
+    cloudCover: Math.round(current.variables(7)!.value()),
     windSpeed: Math.round(current.variables(8)!.value()),
     windDirection: windInfo.label,  // Now a readable string (e.g., "North-East")
     transposition: windInfo.transposition,  // Transposition value

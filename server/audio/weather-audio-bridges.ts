@@ -4,6 +4,16 @@ import { Locations, WeatherData } from 'server/types/audio-types';
 
 let audioEngine: AudioEngine | null = null;
 
+/** Seconds — fade master bus when pausing (gentler). */
+export const WEATHER_AUDIO_FADE_OUT_SEC = 1;
+
+/** Shorter fade when leaving the city screen so audio hits silence quickly before teardown. */
+export const WEATHER_AUDIO_BACK_FADE_OUT_SEC = 0.38;
+
+/** Extra wait after ramp + hard zero so the graph is inaudible before `cleanup()` disconnects nodes. */
+const CLEANUP_POST_SILENCE_MS = 140;
+const SETTLE_BEFORE_DISPOSE_MS = 100;
+
 export const initializeAudioEngine = async () => {
   try {
     // Ensure audio context starts from a user gesture
@@ -29,6 +39,9 @@ export const playWeatherSound = async (weatherData: {
   condition: string;
   transposition: number;
   airPressure: number;
+  rain: number;
+  cloudCover: number;
+  isDay: number;
   lat: number;
   long: number;
 }) => {
@@ -53,7 +66,10 @@ export const playWeatherSound = async (weatherData: {
       windSpeed: weatherData.windSpeed,
       condition: weatherData.condition,
       transposition: weatherData.transposition,
-      airPressure: weatherData.airPressure
+      airPressure: weatherData.airPressure,
+      rain: weatherData.rain,
+      cloudCover: weatherData.cloudCover,
+      isDay: weatherData.isDay
     };
 
     audioEngine?.playWeatherMelody(weather, location);
@@ -63,12 +79,36 @@ export const playWeatherSound = async (weatherData: {
   }
 };
 
+/** Fade out then stop instruments (engine stays alive — use for pause). */
+export async function fadeOutStopMusic(
+  durationSec: number = WEATHER_AUDIO_FADE_OUT_SEC
+): Promise<void> {
+  if (audioEngine) {
+    await audioEngine.fadeOutAndStop(durationSec);
+  }
+}
+
+/** @deprecated Prefer {@link fadeOutStopMusic} */
 export const stopWeatherSound = () => {
   if (audioEngine) {
     audioEngine.stopMelody();
   }
 };
 
+/** Fade out, dispose engine, clear singleton (use for back / full teardown). */
+export async function cleanupAudioEngineWithFade(
+  durationSec: number = WEATHER_AUDIO_BACK_FADE_OUT_SEC
+): Promise<void> {
+  if (audioEngine) {
+    await audioEngine.fadeOutAndStop(durationSec, CLEANUP_POST_SILENCE_MS);
+    await new Promise<void>((r) => setTimeout(r, SETTLE_BEFORE_DISPOSE_MS));
+    audioEngine.cleanup();
+    audioEngine = null;
+    Tone.Transport.stop();
+  }
+}
+
+/** Immediate teardown without fade — prefer {@link cleanupAudioEngineWithFade} for UI. */
 export const cleanupAudioEngine = () => {
   if (audioEngine) {
     audioEngine.cleanup();
@@ -100,7 +140,7 @@ export const getInstrumentStates = () => {
   if (audioEngine) {
     return audioEngine.getInstrumentStates();
   }
-  return { melody: false, lead: true, bass: true };
+  return { melody: true, lead: true, bass: true };
 };
 
 export const muteAudio = () => {

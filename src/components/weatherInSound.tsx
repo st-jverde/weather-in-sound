@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getWeather } from '../../server/weather';
-import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   initializeAudioEngine,
   playWeatherSound,
-  stopWeatherSound,
-  cleanupAudioEngine,
+  fadeOutStopMusic,
+  cleanupAudioEngineWithFade,
   muteAudio,
   unmuteAudio
 } from '../../server/audio/weather-audio-bridges';
@@ -19,6 +19,9 @@ interface Weather {
   windSpeed: number;
   transposition: number;
   airPressure: number;
+  rain: number;
+  cloudCover: number;
+  isDay: number;
 }
 
 interface Locations {
@@ -29,16 +32,6 @@ interface Locations {
 }
 
 const locations: Locations[] = [
-  // Well-known cities
-  { city: "New York", lat: 40.7128, long: -74.0060, feature: "" },
-  { city: "London", lat: 51.5074, long: -0.1278, feature: "" },
-  { city: "Berlin", lat: 52.5200, long: 13.4050, feature: "" },
-  { city: "Tokyo", lat: 35.6762, long: 139.6503, feature: "" },
-  { city: "Sao Paulo", lat: -23.5505, long: -46.6333, feature: "" },
-  { city: "Mexico City", lat: 19.4326, long: -99.1332, feature: "" },
-  { city: "Cairo", lat: 30.0444, long: 31.2357, feature: "" },
-  { city: "New Delhi", lat: 28.6139, long: 77.2090, feature: "" },
-  { city: "Beijing", lat: 39.9042, long: 116.4074, feature: "" },
   // Original cities with special features
   { city: "Amsterdam", lat: 52.3676, long: 4.9041, feature: "Home" },
   { city: "Arica", lat: -18.4783, long: -70.3211, feature: "Driest city in the world" },
@@ -49,6 +42,16 @@ const locations: Locations[] = [
   { city: "Utqiagvik", lat: 71.2906, long: -156.7886, feature: "Extreme cold & polar night" },
   { city: "Jakarta", lat: -6.2088, long: 106.8456, feature: "One of the most humid cities" },
   { city: "La Paz", lat: -16.5000, long: -68.1500, feature: "Highest capital city (3,650m)" },
+  // Well-known cities
+  { city: "New York", lat: 40.7128, long: -74.0060, feature: "" },
+  { city: "London", lat: 51.5074, long: -0.1278, feature: "" },
+  { city: "Berlin", lat: 52.5200, long: 13.4050, feature: "" },
+  { city: "Tokyo", lat: 35.6762, long: 139.6503, feature: "" },
+  { city: "Sao Paulo", lat: -23.5505, long: -46.6333, feature: "" },
+  { city: "Mexico City", lat: 19.4326, long: -99.1332, feature: "" },
+  { city: "Cairo", lat: 30.0444, long: 31.2357, feature: "" },
+  { city: "New Delhi", lat: 28.6139, long: 77.2090, feature: "" },
+  { city: "Beijing", lat: 39.9042, long: 116.4074, feature: "" },
 ];
 
 
@@ -62,6 +65,8 @@ export default function WeatherInSound() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [hoveredCity, setHoveredCity] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  /** When false, user paused — same weather screen, no teardown. */
+  const [audioPlaying, setAudioPlaying] = useState(true);
 
   const handleLocationSelect = async (selectedLoc: Locations) => {
     setSelectedLocation(selectedLoc);
@@ -89,7 +94,10 @@ export default function WeatherInSound() {
         humidity: weatherData.humidity,
         windSpeed: weatherData.windSpeed,
         transposition: weatherData.transposition,
-        airPressure: weatherData.airPressure
+        airPressure: weatherData.airPressure,
+        rain: weatherData.rain,
+        cloudCover: weatherData.cloudCover,
+        isDay: weatherData.isDay
       });
 
     } catch (err) {
@@ -110,6 +118,9 @@ export default function WeatherInSound() {
         windSpeed: weather.windSpeed,
         transposition: weather.transposition,
         airPressure: weather.airPressure,
+        rain: weather.rain,
+        cloudCover: weather.cloudCover,
+        isDay: weather.isDay,
         lat: selectedLocation.lat,
         long: selectedLocation.long
       })
@@ -122,18 +133,54 @@ export default function WeatherInSound() {
 
   useEffect(() => {
     return () => {
-      stopWeatherSound();
-      cleanupAudioEngine();
+      void cleanupAudioEngineWithFade();
     };
   }, []);
 
-  const resetLocation = () => {
+  const resetLocation = async () => {
+    if (muted) {
+      unmuteAudio();
+    }
+    await cleanupAudioEngineWithFade();
     setWeather(null);
     setLocation('');
     setSelectedLocation(null);
     setMuted(false);
-    stopWeatherSound();
-    cleanupAudioEngine();
+    setAudioPlaying(true);
+    setAudioInitialized(false);
+  };
+
+  const handlePausePlay = async () => {
+    if (!weather || !selectedLocation) return;
+    if (audioPlaying) {
+      await fadeOutStopMusic();
+      setAudioPlaying(false);
+      return;
+    }
+    setAudioError(null);
+    try {
+      if (!audioInitialized) {
+        await initializeAudioEngine();
+        setAudioInitialized(true);
+      }
+      await playWeatherSound({
+        temperature: weather.temperature,
+        condition: weather.condition,
+        humidity: weather.humidity,
+        windSpeed: weather.windSpeed,
+        transposition: weather.transposition,
+        airPressure: weather.airPressure,
+        rain: weather.rain,
+        cloudCover: weather.cloudCover,
+        isDay: weather.isDay,
+        lat: selectedLocation.lat,
+        long: selectedLocation.long
+      });
+      setAudioPlaying(true);
+    } catch (err) {
+      console.error("Error resuming sound:", err);
+      setAudioError("Error playing sound. Please refresh the page.");
+    }
   };
 
   const handleToggleMute = () => {
@@ -199,7 +246,7 @@ export default function WeatherInSound() {
         ) : (
           <>
             <Button
-              onClick={resetLocation}
+              onClick={() => void resetLocation()}
               variant="outline"
               className="absolute top-4 right-4"
               aria-label="Return to location input"
@@ -213,13 +260,25 @@ export default function WeatherInSound() {
             </div>
             <p className="text-6xl font-bold mb-6 text-foreground">{weather.temperature}°C</p>
             <p className="text-2xl mb-4 text-foreground uppercase">{weather.condition}</p>
-            <div className="grid grid-cols-3 gap-4 text-sm text-foreground mb-8">
+            <div className="grid grid-cols-2 gap-4 text-sm text-foreground mb-8 sm:grid-cols-3">
               <p>HUMIDITY: {weather.humidity}%</p>
               <p>WIND: {weather.windSpeed} KM/H</p>
               <p>AIR PRESSURE: {weather.airPressure} hPa ({Math.round((weather.airPressure / 1013.25) * 100)}%)</p>
+              <p>RAIN: {weather.rain} mm</p>
+              <p>CLOUD: {weather.cloudCover}%</p>
+              <p>{weather.isDay ? "DAY" : "NIGHT"}</p>
             </div>
-            <div className="flex justify-center mt-8">
+            <div className="flex justify-center gap-3 mt-8">
               <Button
+                type="button"
+                onClick={() => void handlePausePlay()}
+                variant="outline"
+                aria-label={audioPlaying ? "Pause music" : "Play music"}
+              >
+                {audioPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              </Button>
+              <Button
+                type="button"
                 onClick={handleToggleMute}
                 variant="outline"
                 aria-label={muted ? "Unmute audio" : "Mute audio"}

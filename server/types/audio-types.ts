@@ -7,6 +7,12 @@ export interface WeatherData {
   condition: string;
   transposition: number;
   airPressure: number;
+  /** mm precipitation (current) */
+  rain: number;
+  /** 0–100 */
+  cloudCover: number;
+  /** 1 = day, 0 = night */
+  isDay: number;
 }
 
 export interface AudioParameters {
@@ -14,6 +20,12 @@ export interface AudioParameters {
   reverbDecay: number;
   bpm: number;
   baseOctave: number;
+}
+
+/** Extended snapshot from weather — single source for all instruments per play. */
+export interface CompositionParams extends AudioParameters {
+  atmosphereWet: number;
+  dayBrightness: number;
 }
 
 export interface Note {
@@ -77,11 +89,13 @@ export interface NoteData {
   note: string;
   velocity: number;
   silent: boolean;
+  /** Tone time notation, e.g. "8n", "4n" */
+  duration?: string;
 }
 
 export interface BaseInstrument {
-  initialize: (weather: WeatherData) => Promise<void>;
-  start: (weather: WeatherData, location: Locations) => void;
+  initialize: (destination?: Tone.ToneAudioNode) => Promise<void>;
+  start: (weather: WeatherData, params: CompositionParams, location?: Locations) => void;
   stop: () => void;
   cleanup: () => void;
   updatePattern?: (notes: string[] | NoteData[]) => void;
@@ -90,13 +104,14 @@ export interface BaseInstrument {
 export class PatternManager {
   private pattern: Tone.Pattern<string> | null = null;
   private currentNoteData: NoteData[] | null = null;
-  private airPressure: number = 1013; // Default sea level pressure
-  private humidity: number = 50; // Default humidity
-  private notesPlayedInCycle: number = 0; // Track notes played in current cycle
-  private totalNotesInCycle: number = 0; // Total notes in the cycle
+  private airPressure: number = 1013;
+  private humidity: number = 50;
+  private notesPlayedInCycle: number = 0;
+  private totalNotesInCycle: number = 0;
+  private patternStep: number = 0;
 
   constructor(
-    private callback: (time: number, note: string, velocity?: number) => void,
+    private callback: (time: number, note: string, velocity?: number, duration?: string) => void,
     private interval: string = "8n"
   ) {}
 
@@ -114,58 +129,60 @@ export class PatternManager {
       this.pattern.dispose();
     }
 
-    // Store the current note data if it's NoteData[]
-    if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]) {
+    if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === "object" && "note" in notes[0]) {
       this.currentNoteData = notes as NoteData[];
     } else {
       this.currentNoteData = null;
     }
 
-    // Include ALL notes (don't filter - we'll decide at play time)
-    const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]
-      ? (notes as NoteData[]).map(n => n.note)
-      : notes as string[];
+    const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === "object" && "note" in notes[0]
+      ? (notes as NoteData[]).map((n) => n.note)
+      : (notes as string[]);
 
     this.totalNotesInCycle = noteStrings.length;
     this.notesPlayedInCycle = 0;
+    this.patternStep = 0;
 
-    this.pattern = new Tone.Pattern((time, note) => {
-      // Find the original note data to get velocity
-      if (this.currentNoteData) {
-        const noteData = this.currentNoteData.find(n => n.note === note);
+    this.pattern = new Tone.Pattern(
+      (time, _note) => {
+        const idx = this.patternStep % Math.max(1, this.totalNotesInCycle);
+        this.patternStep++;
 
-        // Calculate probability at play time
-        const pressureProbability = Math.max(0.2, Math.min(0.8, 0.2 + ((this.airPressure - 950) / 100) * 0.6));
-        const pressureSkipProbability = 1 - pressureProbability;
-        const humiditySkipProbability = Math.pow(1 - (this.humidity / 100), 0.5);
-        const combinedSkipProbability = Math.max(humiditySkipProbability, pressureSkipProbability);
+        if (this.currentNoteData) {
+          const noteData = this.currentNoteData[idx];
+          const note = noteData.note;
 
-        // Calculate how many notes remain in the cycle
-        const remainingNotes = this.totalNotesInCycle - this.notesPlayedInCycle;
-        const needMoreNotes = this.notesPlayedInCycle < 3;
-        const notesNeeded = 3 - this.notesPlayedInCycle;
+          const pressureProbability = Math.max(
+            0.2,
+            Math.min(0.8, 0.2 + ((this.airPressure - 950) / 100) * 0.6)
+          );
+          const pressureSkipProbability = 1 - pressureProbability;
+          const humiditySkipProbability = Math.pow(1 - this.humidity / 100, 0.5);
+          const combinedSkipProbability = Math.max(humiditySkipProbability, pressureSkipProbability);
 
-        // Decide if note should play
-        let shouldPlay = false;
-        if (needMoreNotes && remainingNotes <= notesNeeded) {
-          // Force play if we need to reach minimum of 3 and this is one of the last notes
-          shouldPlay = true;
+          const remainingNotes = this.totalNotesInCycle - this.notesPlayedInCycle;
+          const needMoreNotes = this.notesPlayedInCycle < 3;
+          const notesNeeded = 3 - this.notesPlayedInCycle;
+
+          let shouldPlay = false;
+          if (needMoreNotes && remainingNotes <= notesNeeded) {
+            shouldPlay = true;
+          } else {
+            shouldPlay = Math.random() >= combinedSkipProbability;
+          }
+
+          if (shouldPlay) {
+            this.notesPlayedInCycle++;
+            this.callback(time, note, noteData.velocity, noteData.duration);
+          }
         } else {
-          // Random decision based on probability
-          shouldPlay = Math.random() >= combinedSkipProbability;
-        }
-
-        if (shouldPlay) {
           this.notesPlayedInCycle++;
-          this.callback(time, note, noteData?.velocity);
+          this.callback(time, _note);
         }
-        // If not playing, just skip (silence)
-      } else {
-        // No note data, play all notes
-        this.notesPlayedInCycle++;
-        this.callback(time, note);
-      }
-    }, noteStrings, "up");
+      },
+      noteStrings,
+      "up"
+    );
 
     this.pattern.interval = this.interval;
     this.pattern.probability = 1;
@@ -173,20 +190,19 @@ export class PatternManager {
 
   update(notes: string[] | NoteData[]): void {
     if (this.pattern) {
-      // Store the current note data if it's NoteData[]
-      if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]) {
+      if (Array.isArray(notes) && notes.length > 0 && typeof notes[0] === "object" && "note" in notes[0]) {
         this.currentNoteData = notes as NoteData[];
       } else {
         this.currentNoteData = null;
       }
 
-      // Include ALL notes (don't filter - we'll decide at play time)
-      const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === 'object' && 'note' in notes[0]
-        ? (notes as NoteData[]).map(n => n.note)
-        : notes as string[];
+      const noteStrings = Array.isArray(notes) && notes.length > 0 && typeof notes[0] === "object" && "note" in notes[0]
+        ? (notes as NoteData[]).map((n) => n.note)
+        : (notes as string[]);
 
       this.totalNotesInCycle = noteStrings.length;
       this.notesPlayedInCycle = 0;
+      this.patternStep = 0;
       this.pattern.values = noteStrings;
     } else {
       this.create(notes);
@@ -194,7 +210,8 @@ export class PatternManager {
   }
 
   start(): void {
-    this.notesPlayedInCycle = 0; // Reset counter when starting
+    this.notesPlayedInCycle = 0;
+    this.patternStep = 0;
     this.pattern?.start(0);
   }
 
