@@ -2,7 +2,24 @@ import { fetchWeatherApi } from 'openmeteo';
 
 const BASE_URL = "https://api.open-meteo.com/v1/forecast";
 
-export async function getWeather(latitude: number, longitude: number) {
+/** Normalized current weather from Open-Meteo — explicit so callers (e.g. UI) always see `cloudCover` etc. */
+export interface WeatherFetchResult {
+  temperature: number;
+  humidity: number;
+  isDay: number;
+  rain: number;
+  condition: string;
+  cloudCover: number;
+  windSpeed: number;
+  windDirection: string;
+  transposition: number;
+  airPressure: number;
+}
+
+export async function getWeather(
+  latitude: number,
+  longitude: number
+): Promise<WeatherFetchResult> {
   const params = {
     latitude,
     longitude,

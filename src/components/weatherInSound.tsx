@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getWeather } from '../../server/weather';
+import { getWeather, type WeatherFetchResult } from '../../server/weather';
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -12,17 +12,8 @@ import {
 } from '../../server/audio/weather-audio-bridges';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
-interface Weather {
-  temperature: number;
-  condition: string;
-  humidity: number;
-  windSpeed: number;
-  transposition: number;
-  airPressure: number;
-  rain: number;
-  cloudCover: number;
-  isDay: number;
-}
+/** UI state — same fields we pass to audio; omit API-only `windDirection`. */
+type Weather = Omit<WeatherFetchResult, 'windDirection'>;
 
 interface Locations {
   city: string;
