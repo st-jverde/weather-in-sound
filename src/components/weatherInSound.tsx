@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getWeather, type WeatherFetchResult } from '../../server/weather';
+import { useState, useEffect, useRef } from 'react';
+import { getWeather, weatherFetchFailureMessage, type WeatherFetchResult } from '../../server/weather';
 import { Cloud, Sun, CloudRain, Snowflake, Wind, ArrowLeft, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 /** UI state — same fields we pass to audio; omit API-only `windDirection`. */
-type Weather = Omit<WeatherFetchResult, 'windDirection'>;
+type Weather = Omit<WeatherFetchResult, "windDirection">;
 
 interface Locations {
   city: string;
@@ -45,6 +45,17 @@ const locations: Locations[] = [
   { city: "Beijing", lat: 39.9042, long: 116.4074, feature: "" },
 ];
 
+class AudioInitError extends Error {
+  constructor(public readonly initCause: unknown) {
+    super("Audio initialization failed");
+    this.name = "AudioInitError";
+  }
+}
+
+function formatMillimeters(mm: number): string {
+  const rounded = Math.round(mm * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
 
 export default function WeatherInSound() {
   const [selectedLocation, setSelectedLocation] = useState<Locations | null>(null);
@@ -59,26 +70,41 @@ export default function WeatherInSound() {
   /** When false, user paused — same weather screen, no teardown. */
   const [audioPlaying, setAudioPlaying] = useState(true);
 
+  const weatherRequestSession = useRef(0);
+  const weatherAbortRef = useRef<AbortController | null>(null);
+  const audioReadyRef = useRef(false);
+
   const handleLocationSelect = async (selectedLoc: Locations) => {
+    const session = ++weatherRequestSession.current;
+    weatherAbortRef.current?.abort();
+    const ac = new AbortController();
+    weatherAbortRef.current = ac;
+
     setSelectedLocation(selectedLoc);
     setLocation(selectedLoc.city);
     setError(null);
     setAudioError(null);
     setLoading(true);
 
-    try {
-      if (!audioInitialized) {
-        try {
-          await initializeAudioEngine();
-          setAudioInitialized(true);
-        } catch (err) {
-          setAudioError('Failed to initialize audio. Please try again.');
-          console.log(audioError);
-          throw err;
-        }
+    const initIfNeeded = async () => {
+      if (audioReadyRef.current) return;
+      try {
+        await initializeAudioEngine();
+      } catch (e) {
+        throw new AudioInitError(e);
       }
+      audioReadyRef.current = true;
+      setAudioInitialized(true);
+    };
 
-      const weatherData = await getWeather(selectedLoc.lat, selectedLoc.long);
+    try {
+      const [, weatherData] = await Promise.all([
+        initIfNeeded(),
+        getWeather(selectedLoc.lat, selectedLoc.long, { signal: ac.signal }),
+      ]);
+
+      if (session !== weatherRequestSession.current) return;
+
       setWeather({
         temperature: weatherData.temperature,
         condition: weatherData.condition,
@@ -88,20 +114,27 @@ export default function WeatherInSound() {
         airPressure: weatherData.airPressure,
         rain: weatherData.rain,
         cloudCover: weatherData.cloudCover,
-        isDay: weatherData.isDay
+        isDay: weatherData.isDay,
       });
-
     } catch (err) {
+      if (session !== weatherRequestSession.current) return;
+      if (err instanceof AudioInitError) {
+        setAudioError("Failed to initialize audio. Please try again.");
+        console.error("Audio init error:", err.initCause);
+        return;
+      }
       console.error("Error:", err);
-      setError("Failed to fetch weather data. Please try again.");
+      const msg = weatherFetchFailureMessage(err);
+      if (msg) setError(msg);
     } finally {
-      setLoading(false);
+      if (session === weatherRequestSession.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     if (weather && audioInitialized && selectedLocation) {
-      console.log("Updated weather state:", weather);
       playWeatherSound({
         temperature: weather.temperature,
         condition: weather.condition,
@@ -138,6 +171,7 @@ export default function WeatherInSound() {
     setSelectedLocation(null);
     setMuted(false);
     setAudioPlaying(true);
+    audioReadyRef.current = false;
     setAudioInitialized(false);
   };
 
@@ -152,6 +186,7 @@ export default function WeatherInSound() {
     try {
       if (!audioInitialized) {
         await initializeAudioEngine();
+        audioReadyRef.current = true;
         setAudioInitialized(true);
       }
       await playWeatherSound({
@@ -255,10 +290,15 @@ export default function WeatherInSound() {
               <p>HUMIDITY: {weather.humidity}%</p>
               <p>WIND: {weather.windSpeed} KM/H</p>
               <p>AIR PRESSURE: {weather.airPressure} hPa ({Math.round((weather.airPressure / 1013.25) * 100)}%)</p>
-              <p>RAIN: {weather.rain} mm</p>
+              <p>PRECIPITATION: {formatMillimeters(weather.rain)} mm</p>
               <p>CLOUD: {weather.cloudCover}%</p>
               <p>{weather.isDay ? "DAY" : "NIGHT"}</p>
             </div>
+            {audioError && (
+              <p className="text-destructive text-center text-sm mb-4" role="alert">
+                {audioError}
+              </p>
+            )}
             <div className="flex justify-center gap-3 mt-8">
               <Button
                 type="button"

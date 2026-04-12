@@ -7,7 +7,7 @@ export interface WeatherData {
   condition: string;
   transposition: number;
   airPressure: number;
-  /** mm precipitation (current) */
+  /** Total precipitation mm (rain, showers, snow, hail, etc. as water equivalent) for the API look-back window */
   rain: number;
   /** 0–100 */
   cloudCover: number;
